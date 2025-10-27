@@ -24,6 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		690208AC2EAEF9CD001E06B3 /* SpiceShelf.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SpiceShelf.xctestplan; sourceTree = "<group>"; };
 		69CEA1412EAC5C6000DBBD9B /* SpiceShelf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpiceShelf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69CEA1522EAC5C6200DBBD9B /* SpiceShelfTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpiceShelfTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		69CEA15C2EAC5C6200DBBD9B /* SpiceShelfUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpiceShelfUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -88,6 +89,7 @@
 		69CEA1382EAC5C6000DBBD9B = {
 			isa = PBXGroup;
 			children = (
+				690208AC2EAEF9CD001E06B3 /* SpiceShelf.xctestplan */,
 				69CEA1432EAC5C6000DBBD9B /* SpiceShelf */,
 				69CEA1552EAC5C6200DBBD9B /* SpiceShelfTests */,
 				69CEA15F2EAC5C6200DBBD9B /* SpiceShelfUITests */,

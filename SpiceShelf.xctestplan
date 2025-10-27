@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "A990E9D3-84B1-4DAA-B8FE-B3D3CDFC883F",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:SpiceShelf.xcodeproj",
+      "identifier" : "69CEA1402EAC5C6000DBBD9B",
+      "name" : "SpiceShelf"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:SpiceShelf.xcodeproj",
+        "identifier" : "69CEA1512EAC5C6200DBBD9B",
+        "name" : "SpiceShelfTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:SpiceShelf.xcodeproj",
+        "identifier" : "69CEA15B2EAC5C6200DBBD9B",
+        "name" : "SpiceShelfUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

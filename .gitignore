@@ -1,0 +1,20 @@
+# Xcode
+.DS_Store
+/build/
+/DerivedData/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/configuration/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/
+*.swiftpm/
+
+# Other
+*.swp
+*.out
+Thumbs.db
+*.tmp
+.vscode/
+.idea/
