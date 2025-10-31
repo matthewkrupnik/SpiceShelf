@@ -1,3 +1,4 @@
+
 # Tasks: Recipe Organizer
 
 **Input**: Design documents from `/specs/001-recipe-organizer/`
@@ -13,7 +14,8 @@
 ## Phase 2: Foundational
 
 - [X] T004 Create the `Recipe` model in `SpiceShelf/Models/Recipe.swift`
-- [X] T005 Create a `CloudKitService` in `SpiceShelf/Services/CloudKitService.swift` to handle all CloudKit operations
+- [X] T005 Create a `CloudKitServiceProtocol` in `SpiceShelf/Services/CloudKitServiceProtocol.swift`
+- [X] T006 Create a `CloudKitService` in `SpiceShelf/Services/CloudKitService.swift` to handle all CloudKit operations
 
 ---
 
@@ -30,10 +32,9 @@
 
 ### Implementation for User Story 1
 
-- [X] T006 [US1] Create `AddRecipeView` in `SpiceShelf/Views/AddRecipeView.swift`
-- [X] T007 [US1] Create `AddRecipeViewModel` in `SpiceShelf/ViewModels/AddRecipeViewModel.swift`
-- [X] T008 [US1] Implement the UI for adding a recipe in `AddRecipeView`
-- [X] T009 [US1] Implement the logic for saving a recipe in `AddRecipeViewModel`
+- [X] T007 [US1] Create `AddRecipeView` in `SpiceShelf/Views/AddRecipeView.swift`
+- [X] T008 [US1] Create `AddRecipeViewModel` in `SpiceShelf/ViewModels/AddRecipeViewModel.swift`
+- [X] T009 [US1] Implement the UI for adding a recipe in `AddRecipeView`
 
 ---
 
@@ -45,8 +46,8 @@
 
 ### Tests for User Story 2
 
-- [X] T019 [US2] Write unit tests for `RecipeListViewModel` in `SpiceShelfTests/RecipeListViewModelTests.swift`
-- [X] T020 [US2] Write UI tests for the recipe list and detail view in `SpiceShelfUITests/RecipeViewTests.swift`
+- [X] T018 [US2] Write unit tests for `RecipeListViewModel` in `SpiceShelfTests/RecipeListViewModelTests.swift`
+- [X] T019 [US2] Write UI tests for the recipe list and detail view in `SpiceShelfUITests/RecipeViewTests.swift`
 
 ### Implementation for User Story 2
 
@@ -55,8 +56,7 @@
 - [X] T014 [US2] Create `RecipeDetailView` in `SpiceShelf/Views/RecipeDetailView.swift`
 - [X] T015 [US2] Create `RecipeDetailViewModel` in `SpiceShelf/ViewModels/RecipeDetailViewModel.swift`
 - [X] T016 [US2] Implement the UI for the recipe list in `RecipeListView`
-- [X] T017 [US2] Implement the logic for fetching recipes in `RecipeListViewModel`
-- [X] T018 [US2] Implement the UI for the recipe detail view in `RecipeDetailView`
+- [X] T017 [US2] Implement the UI for the recipe detail view in `RecipeDetailView`
 
 ---
 
@@ -68,14 +68,14 @@
 
 ### Tests for User Story 3
 
-- [X] T024 [US3] Write unit tests for the edit functionality in `SpiceShelfTests/EditRecipeTests.swift`
-- [X] T025 [US3] Write UI tests for the edit recipe flow in `SpiceShelfUITests/EditRecipeTests.swift`
+- [X] T023 [US3] Write unit tests for the edit functionality in `SpiceShelfTests/EditRecipeTests.swift`
+- [X] T024 [US3] Write UI tests for the edit recipe flow in `SpiceShelfUITests/EditRecipeTests.swift`
 
 ### Implementation for User Story 3
 
-- [X] T021 [US3] Add an "Edit" button to `RecipeDetailView`
-- [X] T022 [US3] Implement the logic for updating a recipe in `CloudKitService`
-- [X] T023 [US3] Implement the edit functionality in `RecipeDetailViewModel`
+- [X] T020 [US3] Add an "Edit" button to `RecipeDetailView`
+- [X] T021 [US3] Implement the logic for updating a recipe in `CloudKitService`
+- [X] T022 [US3] Implement the edit functionality in `RecipeDetailViewModel`
 
 ---
 
@@ -87,14 +87,14 @@
 
 ### Tests for User Story 4
 
-- [X] T029 [US4] Write unit tests for the delete functionality in `SpiceShelfTests/DeleteRecipeTests.swift`
-- [X] T030 [US4] Write UI tests for the delete recipe flow in `SpiceShelfUITests/DeleteRecipeTests.swift`
+- [X] T028 [US4] Write unit tests for the delete functionality in `SpiceShelfTests/DeleteRecipeTests.swift`
+- [X] T029 [US4] Write UI tests for the delete recipe flow in `SpiceShelfUITests/DeleteRecipeTests.swift`
 
 ### Implementation for User Story 4
 
-- [X] T026 [US4] Add a "Delete" button to `RecipeDetailView`
-- [X] T027 [US4] Implement the logic for deleting a recipe in `CloudKitService`
-- [X] T028 [US4] Implement the delete functionality in `RecipeDetailViewModel`
+- [X] T025 [US4] Add a "Delete" button to `RecipeDetailView`
+- [X] T026 [US4] Implement the logic for deleting a recipe in `CloudKitService`
+- [X] T027 [US4] Implement the delete functionality in `RecipeDetailViewModel`
 
 ---
 
@@ -106,22 +106,22 @@
 
 ### Tests for User Story 5
 
-- [X] T036 [US5] Write unit tests for `ImportRecipeViewModel` in `SpiceShelfTests/ImportRecipeViewModelTests.swift`
-- [X] T037 [US5] Write unit tests for `RecipeParserService` in `SpiceShelfTests/RecipeParserServiceTests.swift`
-- [X] T038 [US5] Write UI tests for the import recipe flow in `SpiceShelfUITests/ImportRecipeTests.swift`
+- [X] T035 [US5] Write unit tests for `ImportRecipeViewModel` in `SpiceShelfTests/ImportRecipeViewModelTests.swift`
+- [X] T036 [US5] Write unit tests for `RecipeParserService` in `SpiceShelfTests/RecipeParserServiceTests.swift`
+- [X] T037 [US5] Write UI tests for the import recipe flow in `SpiceShelfUITests/ImportRecipeTests.swift`
 
 ### Implementation for User Story 5
 
-- [X] T031 [US5] Create an `ImportRecipeView` in `SpiceShelf/Views/ImportRecipeView.swift`
-- [X] T032 [US5] Create an `ImportRecipeViewModel` in `SpiceShelf/ViewModels/ImportRecipeViewModel.swift`
-- [X] T033 [US5] Create a `RecipeParserService` in `SpiceShelf/Services/RecipeParserService.swift` to handle parsing recipes from websites
-- [X] T034 [US5] Implement the UI for importing a recipe in `ImportRecipeView`
-- [X] T035 [US5] Implement the logic for parsing and saving the imported recipe in `ImportRecipeViewModel`
+- [X] T030 [US5] Create an `ImportRecipeView` in `SpiceShelf/Views/ImportRecipeView.swift`
+- [X] T031 [US5] Create an `ImportRecipeViewModel` in `SpiceShelf/ViewModels/ImportRecipeViewModel.swift`
+- [X] T032 [US5] Create a `RecipeParserService` in `SpiceShelf/Services/RecipeParserService.swift` to handle parsing recipes from websites
+- [X] T033 [US5] Implement the UI for importing a recipe in `ImportRecipeView`
+- [X] T034 [US5] Implement the logic for parsing and saving the imported recipe in `ImportRecipeViewModel`
 
 ---
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [X] T039 Review and refactor code
-- [X] T040 Ensure all UI is consistent with Apple's HIG
-- [X] T041 Perform performance testing and optimization
+- [X] T038 Review and refactor code
+- [X] T039 Ensure all UI is consistent with Apple's HIG
+- [X] T040 Perform performance testing and optimization

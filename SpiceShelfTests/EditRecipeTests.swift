@@ -2,21 +2,35 @@ import XCTest
 @testable import SpiceShelf
 
 class EditRecipeTests: XCTestCase {
+    
+    // Keep a strong reference to prevent premature deallocation during async operations
+    var viewModel: RecipeDetailViewModel?
+
+    override func tearDown() {
+        viewModel = nil
+        super.tearDown()
+    }
 
     func testUpdateRecipe() {
-        print("Running testUpdateRecipe")
         // Given
-        let recipe = Recipe(id: UUID(), title: "Original Title", ingredients: ["Original Ingredient"], instructions: ["Original Instruction"], sourceURL: nil)
         let mockCloudKitService = MockCloudKitService()
-        let viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)
-        
+        let recipe = Recipe(id: UUID(),
+                              title: "Original Title",
+                              ingredients: ["Original Ingredient"],
+                              instructions: ["Original Instruction"],
+                              sourceURL: nil)
+        viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)
+        let expectation = self.expectation(description: "Update recipe expectation")
+        mockCloudKitService.expectation = expectation
+
         // When
-        viewModel.recipe.title = "Updated Title"
-        viewModel.updateRecipe()
-        
+        viewModel?.recipe.title = "Updated Title"
+        viewModel?.saveChanges()
+
         // Then
+        waitForExpectations(timeout: 2.0, handler: nil)
+
         XCTAssertTrue(mockCloudKitService.updateRecipeCalled)
         XCTAssertEqual(mockCloudKitService.recipeSaved?.title, "Updated Title")
     }
-
 }

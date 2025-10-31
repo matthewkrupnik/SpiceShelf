@@ -1,63 +1,117 @@
 import SwiftUI
 
 struct RecipeDetailView: View {
-    @StateObject private var viewModel: RecipeDetailViewModel
-    @State private var isEditing = false
-    
-    init(recipe: Recipe) {
-        _viewModel = StateObject(wrappedValue: RecipeDetailViewModel(recipe: recipe))
-    }
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(viewModel.recipe.title)
-                    .font(.largeTitle)
-                
-                Text("Ingredients")
-                    .font(.title2)
-                ForEach(viewModel.recipe.ingredients, id: \.self) { ingredient in
-                    Text("- \(ingredient)")
-                }
-                
-                Text("Instructions")
-                    .font(.title2)
-                ForEach(viewModel.recipe.instructions, id: \.self) { instruction in
-                    Text(instruction)
-                }
-                Button("Delete") {
-                    viewModel.deleteRecipe()
-                }
-                .foregroundColor(.red)
-            }
-            .padding()
-        }
-        .navigationTitle(viewModel.recipe.title)
-        .navigationBarItems(trailing: Button("Edit") {
-            isEditing = true
-        })
-        .sheet(isPresented: $isEditing) {
-            EditRecipeView(viewModel: viewModel)
-        }
-    }
-}
 
-struct EditRecipeView: View {
-    @ObservedObject var viewModel: RecipeDetailViewModel
+    @StateObject var viewModel: RecipeDetailViewModel
     @Environment(\.presentationMode) var presentationMode
-    
+
+    @State private var isShowingEditView = false
+
     var body: some View {
-        NavigationView {
-            Form {
-                TextField("Title", text: $viewModel.recipe.title)
-                // How to edit arrays of strings in a TextField?
-                // This needs a more complex UI.
+
+        ScrollView {
+
+            VStack(alignment: .leading, spacing: 16) {
+
+                Text(viewModel.recipe.title)
+
+                    .font(.largeTitle)
+
+                    .fontWeight(.bold)
+
+                    .padding(.horizontal)
+
+                VStack(alignment: .leading, spacing: 8) {
+
+                    Text("Ingredients")
+
+                        .font(.headline)
+
+                        .padding(.horizontal)
+
+                    ForEach(viewModel.recipe.ingredients, id: \.self) { ingredient in
+
+                        Text("- \(ingredient)")
+
+                            .padding(.horizontal)
+
+                    }
+
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+
+                    Text("Instructions")
+
+                        .font(.headline)
+
+                        .padding(.horizontal)
+
+                    ForEach(viewModel.recipe.instructions.indices, id: \.self) { index in
+
+                        HStack(alignment: .top) {
+
+                            Text("\(index + 1).")
+
+                                .fontWeight(.bold)
+
+                            Text(viewModel.recipe.instructions[index])
+
+                        }
+
+                        .padding(.horizontal)
+
+                    }
+
+                }
+
             }
-            .navigationTitle("Edit Recipe")
-            .navigationBarItems(trailing: Button("Save") {
-                viewModel.updateRecipe()
-                presentationMode.wrappedValue.dismiss()
-            })
+
         }
+
+        .navigationTitle(viewModel.recipe.title)
+
+        .navigationBarTitleDisplayMode(.inline)
+
+                .navigationBarItems(
+                    leading: Button(action: {
+                        viewModel.isShowingDeleteConfirmation = true
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                    },
+                    trailing: Button("Edit") {
+                        isShowingEditView = true
+                    }
+                )
+                .sheet(isPresented: $isShowingEditView) {
+                    EditRecipeView(viewModel: viewModel)
+                }
+                .alert(isPresented: $viewModel.isShowingDeleteConfirmation) {
+                    Alert(
+                        title: Text("Delete Recipe"),
+                        message: Text("Are you sure you want to delete this recipe?"),
+                        primaryButton: .destructive(Text("Delete")) {
+                            viewModel.deleteRecipe {
+                                presentationMode.wrappedValue.dismiss()
+                            }
+                        },
+                        secondaryButton: .cancel()
+                    )
+                }
+                .overlay(
+                    Group {
+                        if viewModel.state == .saving || viewModel.state == .deleting {
+                            ProgressView()
+                        }
+                    }
+                )
+                .alert(isPresented: .constant(viewModel.error != nil), error: viewModel.error) {
+                    Button("OK") {
+                        viewModel.error = nil
+                    }
+                }
+
     }
+
 }

@@ -1,37 +1,35 @@
-
 import XCTest
 @testable import SpiceShelf
 
 class RecipeParserServiceTests: XCTestCase {
-
-    var recipeParserService: RecipeParserService!
-
-    override func setUp() {
-        super.setUp()
-        recipeParserService = RecipeParserService()
-    }
+    
+    // Keep a strong reference to prevent premature deallocation during async operations
+    var service: RecipeParserService?
 
     override func tearDown() {
-        recipeParserService = nil
+        service = nil
         super.tearDown()
     }
 
-    func testParseRecipe() {
-        let expectation = self.expectation(description: "Parse recipe expectation")
-        let url = URL(string: "https://www.example.com/recipe")!
-        
-        recipeParserService.parseRecipe(from: url) { result in
+    func testParseRecipe() throws {
+        service = RecipeParserService()
+        let url = URL(string: "https://www.example.com")!
+
+        let expectation = self.expectation(description: "Parsing completes")
+
+        service?.parseRecipe(from: url) { result in
             switch result {
             case .success(let recipe):
-                XCTAssertEqual(recipe.title, "Example Recipe")
+                XCTAssertEqual(recipe.title, "Dummy Recipe")
                 XCTAssertEqual(recipe.ingredients, ["Ingredient 1", "Ingredient 2"])
                 XCTAssertEqual(recipe.instructions, ["Step 1", "Step 2"])
+                XCTAssertEqual(recipe.sourceURL, url.absoluteString)
+                expectation.fulfill()
             case .failure(let error):
                 XCTFail("Parsing failed with error: \(error)")
             }
-            expectation.fulfill()
         }
-        
-        waitForExpectations(timeout: 5.0, handler: nil)
+
+        waitForExpectations(timeout: 5, handler: nil)
     }
 }

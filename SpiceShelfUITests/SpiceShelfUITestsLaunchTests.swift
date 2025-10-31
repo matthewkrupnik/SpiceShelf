@@ -9,7 +9,7 @@ import XCTest
 
 final class SpiceShelfUITestsLaunchTests: XCTestCase {
 
-    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+    override static var runsForEachTargetApplicationUIConfiguration: Bool {
         true
     }
 
@@ -20,6 +20,7 @@ final class SpiceShelfUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["UITestUseMockCloudKit"]
         app.launch()
 
         // Insert steps here to perform after app launch but before taking a screenshot,

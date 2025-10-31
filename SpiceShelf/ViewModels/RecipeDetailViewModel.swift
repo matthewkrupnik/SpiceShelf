@@ -1,26 +1,63 @@
 import Foundation
-
 import Combine
 
 class RecipeDetailViewModel: ObservableObject {
-    @Published var recipe: Recipe
-    
-    private let cloudKitService: CloudKitServiceProtocol
-    
-    init(recipe: Recipe, cloudKitService: CloudKitServiceProtocol = CloudKitService()) {
-        self.recipe = recipe
-        self.cloudKitService = cloudKitService
+    enum State {
+        case idle
+        case saving
+        case deleting
+        case error
     }
-    
-    func deleteRecipe() {
-        cloudKitService.deleteRecipe(recipe) { (result: Result<Void, Error>) in
-            // Handle result
+
+    @Published var state: State = .idle
+    @Published var recipe: Recipe
+    @Published var isShowingDeleteConfirmation: Bool = false
+    @Published var error: AlertError? = nil
+
+    private let cloudKitService: CloudKitServiceProtocol
+
+    init(recipe: Recipe, cloudKitService: CloudKitServiceProtocol? = nil) {
+        self.recipe = recipe
+        self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
+    }
+
+    func saveChanges() {
+        state = .saving
+        error = nil
+
+        cloudKitService.updateRecipe(recipe) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let updatedRecipe):
+                    self?.recipe = updatedRecipe
+                    self?.state = .idle
+                    // Notify other parts of the app so they can refresh after an update
+                    NotificationCenter.default.post(name: .recipeSaved, object: updatedRecipe)
+                case .failure(let error):
+                    self?.error = AlertError(underlyingError: error)
+                    self?.state = .error
+                }
+            }
         }
     }
 
-    func updateRecipe() {
-        cloudKitService.updateRecipe(recipe) { result in
-            // Handle result
+    func deleteRecipe(completion: (() -> Void)? = nil) {
+        state = .deleting
+        error = nil
+
+        cloudKitService.deleteRecipe(recipe) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.state = .idle
+                    completion?()
+                case .failure(let error):
+                    self?.error = AlertError(underlyingError: error)
+                    self?.state = .error
+                }
+                // Ensure the confirmation flag is reset
+                self?.isShowingDeleteConfirmation = false
+            }
         }
     }
 }

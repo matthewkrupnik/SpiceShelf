@@ -1,51 +1,59 @@
-
 import Foundation
 import Combine
 
 class ImportRecipeViewModel: ObservableObject {
-    @Published var urlString: String = ""
-    @Published var isImporting: Bool = false
-    @Published var errorMessage: String? = nil
-    
+    enum State {
+        case idle
+        case importing
+        case success
+        case error
+    }
+
+    @Published var url: String = ""
+    @Published var state: State = .idle
+    @Published var error: AlertError? = nil
+
     private let cloudKitService: CloudKitServiceProtocol
     private let recipeParserService: RecipeParserService
-    
-    init(cloudKitService: CloudKitServiceProtocol = CloudKitService(), recipeParserService: RecipeParserService = RecipeParserService()) {
-        self.cloudKitService = cloudKitService
-        self.recipeParserService = recipeParserService
+
+    init(
+        recipeParserService: RecipeParserService? = nil,
+        cloudKitService: CloudKitServiceProtocol? = nil
+    ) {
+        self.recipeParserService = recipeParserService ?? RecipeParserService()
+        self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
-    
+
     func importRecipe() {
-        guard let url = URL(string: urlString) else {
-            errorMessage = "Invalid URL"
+        state = .importing
+        error = nil
+
+        guard let parseURL = URL(string: url) else {
+            error = AlertError(underlyingError: URLError(.badURL))
+            state = .error
             return
         }
-        
-        isImporting = true
-        errorMessage = nil
-        
-        recipeParserService.parseRecipe(from: url) { [weak self] result in
+
+        recipeParserService.parseRecipe(from: parseURL) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isImporting = false
+                guard let self = self else { return }
+
                 switch result {
                 case .success(let recipe):
-                    self?.save(recipe: recipe)
+                    self.cloudKitService.saveRecipe(recipe) { result in
+                        DispatchQueue.main.async {
+                            switch result {
+                            case .success:
+                                self.state = .success
+                            case .failure(let error):
+                                self.error = AlertError(underlyingError: error)
+                                self.state = .error
+                            }
+                        }
+                    }
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-    
-    private func save(recipe: Recipe) {
-        cloudKitService.saveRecipe(recipe) { [weak self] (result: Result<Recipe, Error>) in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(_):
-                    // Handle success, maybe dismiss the view
-                    break
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self.error = AlertError(underlyingError: error)
+                    self.state = .error
                 }
             }
         }

@@ -25,7 +25,7 @@ struct SpiceShelfApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RecipeListView()
         }
         .modelContainer(sharedModelContainer)
     }
