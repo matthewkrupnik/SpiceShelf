@@ -16,7 +16,7 @@ class DeleteRecipeTests: XCTestCase {
         let mockCloudKitService = MockCloudKitService()
         let recipe = Recipe(id: UUID(),
                               title: "Test Recipe",
-                              ingredients: ["Test Ingredient"],
+                              ingredients: [Ingredient(id: UUID(), name: "Test Ingredient", quantity: 1.0, units: "")],
                               instructions: ["Test Instruction"],
                               sourceURL: nil)
         viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)

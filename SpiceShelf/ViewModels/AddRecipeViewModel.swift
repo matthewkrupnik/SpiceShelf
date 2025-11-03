@@ -26,18 +26,16 @@ class AddRecipeViewModel: ObservableObject {
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
 
-    func saveRecipe(title: String, ingredients: String, instructions: String) {
+    func saveRecipe(title: String, ingredients: [Ingredient], instructions: [String]) {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.error = AlertError(underlyingError: ValidationError.emptyTitle)
             return
         }
 
-        let ingredientsArray = ingredients.components(separatedBy: .newlines)
-        let instructionsArray = instructions.components(separatedBy: .newlines)
         let recipe = Recipe(id: UUID(),
                               title: title,
-                              ingredients: ingredientsArray,
-                              instructions: instructionsArray,
+                              ingredients: ingredients,
+                              instructions: instructions,
                               sourceURL: nil)
 
         cloudKitService.saveRecipe(recipe) { (result: Result<Recipe, Error>) in

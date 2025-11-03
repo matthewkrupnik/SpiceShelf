@@ -11,9 +11,33 @@ struct EditRecipeView: View {
                     TextField("Recipe Title", text: $viewModel.recipe.title)
                 }
                 Section(header: Text("Ingredients")) {
+                    // Bind the ingredients array to a multi-line text editor by mapping Ingredient -> name and back.
                     TextEditor(text: Binding(
-                        get: { viewModel.recipe.ingredients.joined(separator: "\n") },
-                        set: { viewModel.recipe.ingredients = $0.components(separatedBy: "\n") }
+                        get: {
+                            // Join ingredient names into newline-separated text
+                            viewModel.recipe.ingredients.map { $0.name }.joined(separator: "\n")
+                        },
+                        set: { newValue in
+                            // Split lines, trim, ignore empty lines
+                            let names = newValue
+                                .components(separatedBy: "\n")
+                                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                .filter { !$0.isEmpty }
+
+                            // Preserve existing ingredient ids/quantities where possible
+                            var updated: [Ingredient] = []
+                            for (index, name) in names.enumerated() {
+                                if index < viewModel.recipe.ingredients.count {
+                                    var existing = viewModel.recipe.ingredients[index]
+                                    existing.name = name
+                                    updated.append(existing)
+                                } else {
+                                    updated.append(Ingredient(id: UUID(), name: name, quantity: 0.0, units: ""))
+                                }
+                            }
+
+                            viewModel.recipe.ingredients = updated
+                        }
                     ))
                 }
                 Section(header: Text("Instructions")) {

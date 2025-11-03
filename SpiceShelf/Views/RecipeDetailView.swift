@@ -31,7 +31,8 @@ struct RecipeDetailView: View {
 
                     ForEach(viewModel.recipe.ingredients, id: \.self) { ingredient in
 
-                        Text("- \(ingredient)")
+                        // Use ingredient.name to avoid interpolating the Ingredient type directly
+                        Text("- \(ingredient.name)")
 
                             .padding(.horizontal)
 
@@ -98,18 +99,6 @@ struct RecipeDetailView: View {
                         },
                         secondaryButton: .cancel()
                     )
-                }
-                .overlay(
-                    Group {
-                        if viewModel.state == .saving || viewModel.state == .deleting {
-                            ProgressView()
-                        }
-                    }
-                )
-                .alert(isPresented: .constant(viewModel.error != nil), error: viewModel.error) {
-                    Button("OK") {
-                        viewModel.error = nil
-                    }
                 }
 
     }

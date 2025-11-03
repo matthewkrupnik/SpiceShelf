@@ -23,7 +23,7 @@ class RecipeListViewModelTests: XCTestCase {
         // When
         let recipe = Recipe(id: UUID(),
                               title: "Test Recipe",
-                              ingredients: ["Ingredient 1"],
+                              ingredients: [Ingredient(id: UUID(), name: "Ingredient 1", quantity: 1.0, units: "")],
                               instructions: ["Step 1"],
                               sourceURL: nil)
         mockCloudKitService?.saveRecipe(recipe) { _ in }

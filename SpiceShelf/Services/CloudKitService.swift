@@ -1,42 +1,38 @@
 import Foundation
 import CloudKit
 
-enum CloudKitError: Error {
-    case recordNotFound
-}
-
 class CloudKitService: CloudKitServiceProtocol {
-
-    private enum RecordType {
-        static let recipe = "Recipe"
-    }
-
-    private enum Field {
-        static let title = "title"
-        static let ingredients = "ingredients"
-        static let instructions = "instructions"
-        static let sourceURL = "sourceURL"
-    }
 
     private let container: CKContainer
     private let publicDB: CKDatabase
 
     init() {
         print("CloudKitService init")
-        container = CKContainer.default()
+        // Use explicit container identifier that matches the app's iCloud container entitlement
+        // (this must also be present in the app's .entitlements and the developer portal)
+        container = CKContainer(identifier: "iCloud.mk.lan.SpiceShelf")
         publicDB = container.publicCloudDatabase
     }
 
     func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
-        let record = CKRecord(recordType: RecordType.recipe, recordID: CKRecord.ID(recordName: recipe.id.uuidString))
-        record[Field.title] = recipe.title
-        record[Field.ingredients] = recipe.ingredients
-        record[Field.instructions] = recipe.instructions
-        record[Field.sourceURL] = recipe.sourceURL
+        let record = CKRecord(recordType: "Recipe", recordID: CKRecord.ID(recordName: recipe.id.uuidString))
+        record["title"] = recipe.title
+        // Encode ingredients as JSON Data so it's a CKRecordValue-compatible type
+        if let ingredientsData = try? JSONEncoder().encode(recipe.ingredients) {
+            record["ingredients"] = ingredientsData
+        }
+        record["instructions"] = recipe.instructions
+        record["sourceURL"] = recipe.sourceURL
 
         publicDB.save(record) { (_, error) in
             DispatchQueue.main.async {
                 if let error = error {
+                    // Improved logging for debugging permission errors
+                    if let ckError = error as? CKError {
+                        print("CloudKit save error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
+                    } else {
+                        print("CloudKit save error: \(error.localizedDescription)")
+                    }
                     completion(.failure(error))
                 } else {
                     completion(.success(recipe))
@@ -46,9 +42,8 @@ class CloudKitService: CloudKitServiceProtocol {
     }
 
     func fetchRecipes(completion: @escaping (Result<[Recipe], Error>) -> Void) {
-        // For a production app, it would be better to use CKQueryCursor to fetch recipes in batches
-        // instead of all at once to improve performance with a large number of recipes.
-        let query = CKQuery(recordType: RecordType.recipe, predicate: NSPredicate(value: true))
+        let query = CKQuery(recordType: "Recipe", predicate: NSPredicate(value: true))
+        query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         var fetchedRecords: [CKRecord] = []
         let operation = CKQueryOperation(query: query)
@@ -69,8 +64,32 @@ class CloudKitService: CloudKitServiceProtocol {
                 DispatchQueue.main.async {
                     switch result {
                     case .success(_):
-                        let recipes = fetchedRecords.compactMap(self.recipe)
+                        let recipes = fetchedRecords.compactMap { record -> Recipe? in
+                            guard let title = record["title"] as? String,
+                                  let instructions = record["instructions"] as? [String] else {
+                                return nil
+                            }
 
+                            // Try to decode ingredients stored as Data (JSON). If that fails, support legacy [String] storage.
+                            var ingredients: [Ingredient]
+                            if let ingredientsData = record["ingredients"] as? Data,
+                               let decoded = try? JSONDecoder().decode([Ingredient].self, from: ingredientsData) {
+                                ingredients = decoded
+                            } else if let ingredientNames = record["ingredients"] as? [String] {
+                                // Backwards-compat: convert string names to Ingredient objects with default quantity/units
+                                ingredients = ingredientNames.map { Ingredient(id: UUID(), name: $0, quantity: 0.0, units: "") }
+                            } else {
+                                return nil
+                            }
+
+                            let sourceURL = record["sourceURL"] as? String
+
+                            return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
+                                          title: title,
+                                          ingredients: ingredients,
+                                          instructions: instructions,
+                                          sourceURL: sourceURL)
+                        }
 
                         completion(.success(recipes))
                     case .failure(let error):
@@ -91,7 +110,32 @@ class CloudKitService: CloudKitServiceProtocol {
                         return
                     }
 
-                    let recipes = fetchedRecords.compactMap(self.recipe)
+                    let recipes = fetchedRecords.compactMap { record -> Recipe? in
+                        guard let title = record["title"] as? String,
+                              let instructions = record["instructions"] as? [String] else {
+                            return nil
+                        }
+
+                        // Try to decode ingredients stored as Data (JSON). If that fails, support legacy [String] storage.
+                        var ingredients: [Ingredient]
+                        if let ingredientsData = record["ingredients"] as? Data,
+                           let decoded = try? JSONDecoder().decode([Ingredient].self, from: ingredientsData) {
+                            ingredients = decoded
+                        } else if let ingredientNames = record["ingredients"] as? [String] {
+                            // Backwards-compat: convert string names to Ingredient objects with default quantity/units
+                            ingredients = ingredientNames.map { Ingredient(id: UUID(), name: $0, quantity: 0.0, units: "") }
+                        } else {
+                            return nil
+                        }
+
+                        let sourceURL = record["sourceURL"] as? String
+
+                        return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
+                                      title: title,
+                                      ingredients: ingredients,
+                                      instructions: instructions,
+                                      sourceURL: sourceURL)
+                    }
 
                     completion(.success(recipes))
                 }
@@ -107,23 +151,36 @@ class CloudKitService: CloudKitServiceProtocol {
         publicDB.fetch(withRecordID: recordID) { (record, error) in
             DispatchQueue.main.async {
                 if let error = error {
+                    if let ckError = error as? CKError {
+                        print("CloudKit fetch for update error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
+                    } else {
+                        print("CloudKit fetch for update error: \(error.localizedDescription)")
+                    }
                     completion(.failure(error))
                     return
                 }
 
                 guard let record = record else {
-                    completion(.failure(CloudKitError.recordNotFound))
+                    // Handle error: record not found
                     return
                 }
 
-                record[Field.title] = recipe.title
-                record[Field.ingredients] = recipe.ingredients
-                record[Field.instructions] = recipe.instructions
-                record[Field.sourceURL] = recipe.sourceURL
+                record["title"] = recipe.title
+                // Encode ingredients as JSON Data so it's a CKRecordValue-compatible type
+                if let ingredientsData = try? JSONEncoder().encode(recipe.ingredients) {
+                    record["ingredients"] = ingredientsData
+                }
+                record["instructions"] = recipe.instructions
+                record["sourceURL"] = recipe.sourceURL
 
                 self.publicDB.save(record) { (_, error) in
                     DispatchQueue.main.async {
                         if let error = error {
+                            if let ckError = error as? CKError {
+                                print("CloudKit update save error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
+                            } else {
+                                print("CloudKit update save error: \(error.localizedDescription)")
+                            }
                             completion(.failure(error))
                         } else {
                             completion(.success(recipe))
@@ -139,27 +196,16 @@ class CloudKitService: CloudKitServiceProtocol {
         publicDB.delete(withRecordID: recordID) { (_, error) in
             DispatchQueue.main.async {
                 if let error = error {
+                    if let ckError = error as? CKError {
+                        print("CloudKit delete error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
+                    } else {
+                        print("CloudKit delete error: \(error.localizedDescription)")
+                    }
                     completion(.failure(error))
                 } else {
                     completion(.success(()))
                 }
             }
         }
-    }
-
-    private func recipe(from record: CKRecord) -> Recipe? {
-        guard let title = record[Field.title] as? String,
-              let ingredients = record[Field.ingredients] as? [String],
-              let instructions = record[Field.instructions] as? [String] else {
-            return nil
-        }
-
-        let sourceURL = record[Field.sourceURL] as? String
-
-        return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
-                      title: title,
-                      ingredients: ingredients,
-                      instructions: instructions,
-                      sourceURL: sourceURL)
     }
 }

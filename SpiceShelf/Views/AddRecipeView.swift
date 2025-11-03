@@ -3,8 +3,8 @@ import SwiftUI
 struct AddRecipeView: View {
     @StateObject private var viewModel: AddRecipeViewModel
     @State private var title = ""
-    @State private var ingredients = ""
-    @State private var instructions = ""
+    @State private var ingredients: [Ingredient] = [Ingredient(id: UUID(), name: "", quantity: 1.0, units: "")]
+    @State private var instructions: [String] = [""]
     @Environment(\.dismiss) private var dismiss
 
     // Allow injecting a view model (useful for tests); default will be created by the caller.
@@ -15,9 +15,31 @@ struct AddRecipeView: View {
     var body: some View {
         NavigationView {
             Form {
-                TextField("Title", text: $title)
-                TextField("Ingredients", text: $ingredients)
-                TextField("Instructions", text: $instructions)
+                Section(header: Text("Recipe Info")) {
+                    TextField("Title", text: $title)
+                }
+
+                Section(header: Text("Ingredients")) {
+                    ForEach($ingredients) { $ingredient in
+                        HStack {
+                            TextField("Name", text: $ingredient.name)
+                            TextField("Quantity", value: $ingredient.quantity, format: .number)
+                            TextField("Units", text: $ingredient.units)
+                        }
+                    }
+                    Button("Add Ingredient") {
+                        ingredients.append(Ingredient(id: UUID(), name: "", quantity: 1.0, units: ""))
+                    }
+                }
+
+                Section(header: Text("Instructions")) {
+                    ForEach(0..<instructions.count, id: \.self) { index in
+                        TextField("Step \(index + 1)", text: $instructions[index])
+                    }
+                    Button("Add Instruction") {
+                        instructions.append("")
+                    }
+                }
 
                 // Show the saved recipe title when available so UI tests can assert on it
                 if let saved = viewModel.savedRecipe {
@@ -29,7 +51,9 @@ struct AddRecipeView: View {
             }
             .navigationTitle("New Recipe")
             .navigationBarItems(trailing: Button("Save") {
-                viewModel.saveRecipe(title: title, ingredients: ingredients, instructions: instructions)
+                let nonEmptyIngredients = ingredients.filter { !$0.name.isEmpty }
+                let nonEmptyInstructions = instructions.filter { !$0.isEmpty }
+                viewModel.saveRecipe(title: title, ingredients: nonEmptyIngredients, instructions: nonEmptyInstructions)
             })
         }
         // Observe an Equatable value (the saved recipe's id) instead of the Recipe itself so we don't

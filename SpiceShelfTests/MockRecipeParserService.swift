@@ -14,7 +14,10 @@ import Foundation
         DispatchQueue.main.async {
             let dummyRecipe = Recipe(id: UUID(),
                                      title: "Dummy Recipe",
-                                     ingredients: ["Ingredient 1", "Ingredient 2"],
+                                     ingredients: [
+                                        Ingredient(id: UUID(), name: "Ingredient 1", quantity: 1.0, units: ""),
+                                        Ingredient(id: UUID(), name: "Ingredient 2", quantity: 1.0, units: "")
+                                     ],
                                      instructions: ["Step 1", "Step 2"],
                                      sourceURL: url.absoluteString)
             completion(.success(dummyRecipe))

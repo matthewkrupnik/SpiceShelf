@@ -16,7 +16,7 @@ class EditRecipeTests: XCTestCase {
         let mockCloudKitService = MockCloudKitService()
         let recipe = Recipe(id: UUID(),
                               title: "Original Title",
-                              ingredients: ["Original Ingredient"],
+                              ingredients: [Ingredient(id: UUID(), name: "Original Ingredient", quantity: 1.0, units: "")],
                               instructions: ["Original Instruction"],
                               sourceURL: nil)
         viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)
