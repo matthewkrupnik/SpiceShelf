@@ -21,7 +21,7 @@ class RecipeParserServiceTests: XCTestCase {
             switch result {
             case .success(let recipe):
                 XCTAssertEqual(recipe.title, "Dummy Recipe")
-                XCTAssertEqual(recipe.ingredients, ["Ingredient 1", "Ingredient 2"])
+                XCTAssertEqual(recipe.ingredients.map { $0.name }, ["Ingredient 1", "Ingredient 2"])
                 XCTAssertEqual(recipe.instructions, ["Step 1", "Step 2"])
                 XCTAssertEqual(recipe.sourceURL, url.absoluteString)
                 expectation.fulfill()

@@ -10,41 +10,33 @@ struct EditRecipeView: View {
                 Section(header: Text("Title")) {
                     TextField("Recipe Title", text: $viewModel.recipe.title)
                 }
+
                 Section(header: Text("Ingredients")) {
-                    // Bind the ingredients array to a multi-line text editor by mapping Ingredient -> name and back.
-                    TextEditor(text: Binding(
-                        get: {
-                            // Join ingredient names into newline-separated text
-                            viewModel.recipe.ingredients.map { $0.name }.joined(separator: "\n")
-                        },
-                        set: { newValue in
-                            // Split lines, trim, ignore empty lines
-                            let names = newValue
-                                .components(separatedBy: "\n")
-                                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                                .filter { !$0.isEmpty }
-
-                            // Preserve existing ingredient ids/quantities where possible
-                            var updated: [Ingredient] = []
-                            for (index, name) in names.enumerated() {
-                                if index < viewModel.recipe.ingredients.count {
-                                    var existing = viewModel.recipe.ingredients[index]
-                                    existing.name = name
-                                    updated.append(existing)
-                                } else {
-                                    updated.append(Ingredient(id: UUID(), name: name, quantity: 0.0, units: ""))
-                                }
-                            }
-
-                            viewModel.recipe.ingredients = updated
+                    ForEach($viewModel.recipe.ingredients) { $ingredient in
+                        HStack {
+                            TextField("Name", text: $ingredient.name)
+                            TextField("Quantity", value: $ingredient.quantity, format: .number)
+                            TextField("Units", text: $ingredient.units)
                         }
-                    ))
+                    }
+                    .onDelete { offsets in
+                        viewModel.recipe.ingredients.remove(atOffsets: offsets)
+                    }
+                    Button("Add Ingredient") {
+                        viewModel.recipe.ingredients.append(Ingredient(id: UUID(), name: "", quantity: 1.0, units: ""))
+                    }
                 }
+
                 Section(header: Text("Instructions")) {
-                    TextEditor(text: Binding(
-                        get: { viewModel.recipe.instructions.joined(separator: "\n") },
-                        set: { viewModel.recipe.instructions = $0.components(separatedBy: "\n") }
-                    ))
+                    ForEach(0..<viewModel.recipe.instructions.count, id: \.self) { index in
+                        TextField("Step \(index + 1)", text: $viewModel.recipe.instructions[index])
+                    }
+                    .onDelete { offsets in
+                        viewModel.recipe.instructions.remove(atOffsets: offsets)
+                    }
+                    Button("Add Instruction") {
+                        viewModel.recipe.instructions.append("")
+                    }
                 }
             }
             .navigationTitle("Edit Recipe")
