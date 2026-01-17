@@ -1,4 +1,6 @@
 import Foundation
+import UIKit
+import CloudKit
 
 enum ValidationError: Error, LocalizedError {
     case emptyTitle
@@ -26,25 +28,41 @@ class AddRecipeViewModel: ObservableObject {
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
 
-    func saveRecipe(title: String, ingredients: [Ingredient], instructions: [String]) {
+    func saveRecipe(title: String, ingredients: [Ingredient], instructions: [String], servings: Int = 4, image: UIImage? = nil) {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.error = AlertError(underlyingError: ValidationError.emptyTitle)
             return
+        }
+
+        var imageAsset: CKAsset? = nil
+        if let image = image,
+           let data = image.jpegData(compressionQuality: 0.8) {
+            let tempDir = FileManager.default.temporaryDirectory
+            let fileName = UUID().uuidString + ".jpg"
+            let fileURL = tempDir.appendingPathComponent(fileName)
+            do {
+                try data.write(to: fileURL)
+                imageAsset = CKAsset(fileURL: fileURL)
+            } catch {
+                print("Error saving temp image: \(error)")
+            }
         }
 
         let recipe = Recipe(id: UUID(),
                               title: title,
                               ingredients: ingredients,
                               instructions: instructions,
-                              sourceURL: nil)
+                              sourceURL: nil,
+                              servings: servings,
+                              imageAsset: imageAsset)
 
         cloudKitService.saveRecipe(recipe) { (result: Result<Recipe, Error>) in
             switch result {
-            case .success(let r):
+            case .success(let recipe):
                 DispatchQueue.main.async {
-                    self.savedRecipe = r
+                    self.savedRecipe = recipe
                     // Notify other parts of the app so they can refresh after a save
-                    NotificationCenter.default.post(name: .recipeSaved, object: r)
+                    NotificationCenter.default.post(name: .recipeSaved, object: recipe)
                 }
             case .failure(let error):
                 DispatchQueue.main.async {

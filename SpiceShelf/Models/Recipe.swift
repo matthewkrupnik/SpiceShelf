@@ -1,4 +1,5 @@
 import Foundation
+import CloudKit
 
 struct Recipe: Identifiable {
     var id: UUID
@@ -6,4 +7,6 @@ struct Recipe: Identifiable {
     var ingredients: [Ingredient]
     var instructions: [String]
     var sourceURL: String?
+    var servings: Int = 4
+    var imageAsset: CKAsset? = nil
 }

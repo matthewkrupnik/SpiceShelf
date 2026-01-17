@@ -12,7 +12,8 @@ enum ServiceLocator {
             if let mock = _sharedMockCloudKitService {
                 return mock
             } else {
-                let mock = MockCloudKitService()
+                let initialRecipes = ProcessInfo.processInfo.arguments.contains("UITestWithMockRecipes") ? MockRecipes.recipes : []
+                let mock = MockCloudKitService(initialRecipes: initialRecipes)
                 _sharedMockCloudKitService = mock
                 return mock
             }

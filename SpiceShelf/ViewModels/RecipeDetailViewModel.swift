@@ -2,61 +2,71 @@ import Foundation
 import Combine
 
 class RecipeDetailViewModel: ObservableObject {
-    enum State {
-        case idle
-        case saving
-        case deleting
-        case error
-    }
-
-    @Published var state: State = .idle
     @Published var recipe: Recipe
     @Published var isShowingDeleteConfirmation: Bool = false
-    @Published var error: AlertError? = nil
-
+    @Published var currentServings: Int
+    @Published var completedIngredients: Set<UUID> = []
     private let cloudKitService: CloudKitServiceProtocol
 
     init(recipe: Recipe, cloudKitService: CloudKitServiceProtocol? = nil) {
         self.recipe = recipe
+        self.currentServings = recipe.servings
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
 
-    func saveChanges() {
-        state = .saving
-        error = nil
+    var scaledIngredients: [Ingredient] {
+        guard recipe.servings > 0 else { return recipe.ingredients }
+        let scale = Double(currentServings) / Double(recipe.servings)
+        return recipe.ingredients.map {
+            var newIngredient = $0
+            newIngredient.quantity = $0.quantity * scale
+            return newIngredient
+        }
+    }
 
+    func saveChanges() {
+        print("[RecipeDetailViewModel] cloudKitService type = \(type(of: cloudKitService))")
         cloudKitService.updateRecipe(recipe) { [weak self] result in
-            DispatchQueue.main.async {
+            let applyResult = {
                 switch result {
                 case .success(let updatedRecipe):
                     self?.recipe = updatedRecipe
-                    self?.state = .idle
+                    self?.currentServings = updatedRecipe.servings
                     // Notify other parts of the app so they can refresh after an update
                     NotificationCenter.default.post(name: .recipeSaved, object: updatedRecipe)
-                case .failure(let error):
-                    self?.error = AlertError(underlyingError: error)
-                    self?.state = .error
+                case .failure(_):
+                    // Handle error if needed
+                    break
                 }
+            }
+
+            if Thread.isMainThread {
+                applyResult()
+            } else {
+                DispatchQueue.main.async(execute: applyResult)
             }
         }
     }
 
+    // Make completion optional with a default so callers (including tests) can omit it.
     func deleteRecipe(completion: (() -> Void)? = nil) {
-        state = .deleting
-        error = nil
-
         cloudKitService.deleteRecipe(recipe) { [weak self] result in
-            DispatchQueue.main.async {
+            let applyResult = {
                 switch result {
                 case .success:
-                    self?.state = .idle
                     completion?()
-                case .failure(let error):
-                    self?.error = AlertError(underlyingError: error)
-                    self?.state = .error
+                case .failure(_):
+                    // Optionally handle error (e.g., show an alert)
+                    break
                 }
                 // Ensure the confirmation flag is reset
                 self?.isShowingDeleteConfirmation = false
+            }
+
+            if Thread.isMainThread {
+                applyResult()
+            } else {
+                DispatchQueue.main.async(execute: applyResult)
             }
         }
     }

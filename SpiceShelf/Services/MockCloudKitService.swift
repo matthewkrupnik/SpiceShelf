@@ -4,7 +4,12 @@ import Foundation
 // Saves recipes to memory and calls completion handlers asynchronously on the main queue.
 final class MockCloudKitService: CloudKitServiceProtocol {
     private var storage: [String: Recipe] = [:]
-    private let queue = DispatchQueue(label: "MockCloudKitService.queue")
+    private let queue = DispatchQueue(label: "MockCloudKitService")
+    init(initialRecipes: [Recipe] = []) {
+        for recipe in initialRecipes {
+            storage[recipe.id.uuidString] = recipe
+        }
+    }
 
     func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
         queue.async {

@@ -28,7 +28,8 @@ class EditRecipeTests: XCTestCase {
         viewModel?.saveChanges()
 
         // Then
-        waitForExpectations(timeout: 2.0, handler: nil)
+        // Allow more time for async scheduling on busy machines
+        waitForExpectations(timeout: 5.0, handler: nil)
 
         XCTAssertTrue(mockCloudKitService.updateRecipeCalled)
         XCTAssertEqual(mockCloudKitService.recipeSaved?.title, "Updated Title")

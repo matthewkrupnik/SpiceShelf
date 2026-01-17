@@ -23,6 +23,10 @@ class CloudKitService: CloudKitServiceProtocol {
         }
         record["instructions"] = recipe.instructions
         record["sourceURL"] = recipe.sourceURL
+        record["servings"] = recipe.servings
+        if let imageAsset = recipe.imageAsset {
+            record["imageAsset"] = imageAsset
+        }
 
         publicDB.save(record) { (_, error) in
             DispatchQueue.main.async {
@@ -83,12 +87,16 @@ class CloudKitService: CloudKitServiceProtocol {
                             }
 
                             let sourceURL = record["sourceURL"] as? String
+                            let servings = record["servings"] as? Int ?? 4
+                            let imageAsset = record["imageAsset"] as? CKAsset
 
                             return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
                                           title: title,
                                           ingredients: ingredients,
                                           instructions: instructions,
-                                          sourceURL: sourceURL)
+                                          sourceURL: sourceURL,
+                                          servings: servings,
+                                          imageAsset: imageAsset)
                         }
 
                         completion(.success(recipes))
@@ -129,12 +137,16 @@ class CloudKitService: CloudKitServiceProtocol {
                         }
 
                         let sourceURL = record["sourceURL"] as? String
+                        let servings = record["servings"] as? Int ?? 4
+                        let imageAsset = record["imageAsset"] as? CKAsset
 
                         return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
                                       title: title,
                                       ingredients: ingredients,
                                       instructions: instructions,
-                                      sourceURL: sourceURL)
+                                      sourceURL: sourceURL,
+                                      servings: servings,
+                                      imageAsset: imageAsset)
                     }
 
                     completion(.success(recipes))
@@ -172,6 +184,10 @@ class CloudKitService: CloudKitServiceProtocol {
                 }
                 record["instructions"] = recipe.instructions
                 record["sourceURL"] = recipe.sourceURL
+                record["servings"] = recipe.servings
+                if let imageAsset = recipe.imageAsset {
+                    record["imageAsset"] = imageAsset
+                }
 
                 self.publicDB.save(record) { (_, error) in
                     DispatchQueue.main.async {
