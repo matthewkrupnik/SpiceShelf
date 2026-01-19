@@ -16,6 +16,7 @@ enum ValidationError: Error, LocalizedError {
 
 import Combine
 
+@MainActor
 class AddRecipeViewModel: ObservableObject {
     private let cloudKitService: CloudKitServiceProtocol
 
@@ -28,7 +29,7 @@ class AddRecipeViewModel: ObservableObject {
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
 
-    func saveRecipe(title: String, ingredients: [Ingredient], instructions: [String], servings: Int = 4, image: UIImage? = nil) {
+    func saveRecipe(title: String, ingredients: [Ingredient], instructions: [String], servings: Int? = nil, image: UIImage? = nil) {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.error = AlertError(underlyingError: ValidationError.emptyTitle)
             return

@@ -4,18 +4,36 @@ import CloudKit
 
 struct EditRecipeView: View {
     @ObservedObject var viewModel: RecipeDetailViewModel
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
 
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var selectedImage: UIImage? = nil
     @State private var showCamera = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section(header: Text("Title & Servings")) {
                     TextField("Recipe Title", text: $viewModel.recipe.title)
-                    Stepper("Servings: \(viewModel.recipe.servings)", value: $viewModel.recipe.servings, in: 1...100)
+                    if let servings = viewModel.recipe.servings {
+                        HStack {
+                            Stepper("Servings: \(servings)", value: Binding(
+                                get: { viewModel.recipe.servings ?? 1 },
+                                set: { viewModel.recipe.servings = $0 }
+                            ), in: 1...100)
+                            Button(action: { viewModel.recipe.servings = nil }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove servings")
+                        }
+                    } else {
+                        Button("Add Servings") {
+                            viewModel.recipe.servings = 4
+                        }
+                    }
                 }
                 
                 Section(header: Text("Photo")) {
@@ -24,13 +42,8 @@ struct EditRecipeView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(maxHeight: 200)
-                    } else if let imageAsset = viewModel.recipe.imageAsset,
-                              let fileURL = imageAsset.fileURL,
-                              let data = try? Data(contentsOf: fileURL),
-                              let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
+                    } else if viewModel.recipe.imageAsset != nil {
+                        CachedAsyncImage(asset: viewModel.recipe.imageAsset, contentMode: .fit)
                             .frame(maxHeight: 200)
                     }
                     
@@ -91,30 +104,34 @@ struct EditRecipeView: View {
                 }
             }
             .navigationTitle("Edit Recipe")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Save") {
-                    if let selectedImage = selectedImage {
-                        // Convert UIImage to CKAsset
-                        if let data = selectedImage.jpegData(compressionQuality: 0.8) {
-                            let tempDir = FileManager.default.temporaryDirectory
-                            let fileName = UUID().uuidString + ".jpg"
-                            let fileURL = tempDir.appendingPathComponent(fileName)
-                            do {
-                                try data.write(to: fileURL)
-                                viewModel.recipe.imageAsset = CKAsset(fileURL: fileURL)
-                            } catch {
-                                print("Error saving temp image: \(error)")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        if let selectedImage = selectedImage {
+                            // Convert UIImage to CKAsset
+                            if let data = selectedImage.jpegData(compressionQuality: 0.8) {
+                                let tempDir = FileManager.default.temporaryDirectory
+                                let fileName = UUID().uuidString + ".jpg"
+                                let fileURL = tempDir.appendingPathComponent(fileName)
+                                do {
+                                    try data.write(to: fileURL)
+                                    viewModel.recipe.imageAsset = CKAsset(fileURL: fileURL)
+                                } catch {
+                                    print("Error saving temp image: \(error)")
+                                }
                             }
                         }
+                        
+                        viewModel.saveChanges()
+                        dismiss()
                     }
-                    
-                    viewModel.saveChanges()
-                    presentationMode.wrappedValue.dismiss()
                 }
-            )
+            }
         }
     }
 }

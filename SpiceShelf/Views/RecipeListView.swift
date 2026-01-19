@@ -1,24 +1,6 @@
 import SwiftUI
 import CloudKit
 
-import SwiftUI
-// CloudKit is imported but unused in this file directly if we rely on ViewModel/Recipe models,
-// but recipe.imageAsset uses CKAsset which is Foundation/CloudKit.
-// However, CKAsset is available via the Recipe model which imports CloudKit.
-// Let's keep it if needed, but remove duplicate.
-// Actually, 'import CloudKit' is already present in line 2.
-// The file has:
-// import SwiftUI
-// import CloudKit
-// ...
-// No, wait. The linter said "Duplicate Imports Violation".
-// Let's just remove the second one if it exists or check the file content.
-// Ah, the previous replace operation might have added it again.
-// Let's just clean up imports.
-
-import SwiftUI
-import CloudKit
-
 struct RecipeListView: View {
     @StateObject private var viewModel = RecipeListViewModel()
     @State private var isShowingAddRecipeView = false
@@ -47,7 +29,7 @@ struct RecipeListView: View {
                             LazyVGrid(columns: columns, spacing: 16) {
                                 ForEach(viewModel.recipes) { recipe in
                                     NavigationLink(
-                                        destination: RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe))
+                                        destination: RecipeDetailView(recipe: recipe)
                                     ) {
                                         RecipeCardView(recipe: recipe)
                                     }
@@ -59,7 +41,7 @@ struct RecipeListView: View {
                     }
                 case .error:
                     VStack {
-                        Text("An error occurred: \(viewModel.error?.localizedDescription ?? "Unknown error")")
+                        Text("An error occurred: \(String(viewModel.error?.localizedDescription ?? "Unknown error"))")
                         Button("Retry") {
                             viewModel.fetchRecipes()
                         }
@@ -67,23 +49,18 @@ struct RecipeListView: View {
                 }
             }
             .navigationTitle("SpiceShelf")
-            .navigationBarItems(
-                leading: Button(action: {
-                    isShowingImportRecipeView = true
-                }) {
-                    Image(systemName: "square.and.arrow.down")
-                        .foregroundColor(.sageGreen)
-                },
-                trailing: Button(action: {
-                    isShowingAddRecipeView = true
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.sageGreen)
-                        .font(.title2)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Import Recipe", systemImage: "square.and.arrow.down") {
+                        isShowingImportRecipeView = true
+                    }
                 }
-                .accessibilityIdentifier("Add Recipe")
-                .accessibilityLabel("Add Recipe")
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Add Recipe", systemImage: "plus") {
+                        isShowingAddRecipeView = true
+                    }
+                }
+            }
             .sheet(isPresented: $isShowingAddRecipeView) {
                 AddRecipeView()
             }
@@ -158,7 +135,7 @@ struct RecipeCardView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 
                 HStack {
-                    Label("\(recipe.servings)", systemImage: "person.2")
+                    Label(String(recipe.servings ?? 0), systemImage: "person.2")
                     Spacer()
                     Image(systemName: "clock") // Placeholder
                 }

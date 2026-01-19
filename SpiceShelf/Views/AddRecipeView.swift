@@ -1,12 +1,13 @@
 import SwiftUI
 import PhotosUI
 
+@MainActor
 struct AddRecipeView: View {
     @StateObject private var viewModel: AddRecipeViewModel
     @State private var title = ""
     @State private var ingredients: [Ingredient] = []
     @State private var instructions: [String] = [""]
-    @State private var servings = 4
+    @State private var servings: Int? = nil
     @State private var selectedItem: PhotosPickerItem? = nil
     @State private var selectedImage: UIImage? = nil
     @State private var showCamera = false
@@ -15,8 +16,8 @@ struct AddRecipeView: View {
     @State private var newIngredientText = ""
 
     // Allow injecting a view model (useful for tests); default will be created by the caller.
-    init(viewModel: AddRecipeViewModel = AddRecipeViewModel()) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+    init(viewModel: AddRecipeViewModel? = nil) {
+        _viewModel = StateObject(wrappedValue: viewModel ?? AddRecipeViewModel())
     }
 
     var body: some View {
@@ -24,7 +25,25 @@ struct AddRecipeView: View {
             Form {
                 Section(header: Text("Recipe Info")) {
                     TextField("Title", text: $title)
-                    Stepper("Servings: \(servings)", value: $servings, in: 1...100)
+                    if let servingsValue = servings {
+                        HStack {
+                            Stepper("Servings: \(servingsValue)", value: Binding(
+                                get: { servings ?? 1 },
+                                set: { servings = $0 }
+                            ), in: 1...100)
+                            Button(action: { servings = nil }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove servings")
+                        }
+                    } else {
+                        Button("Add Servings") {
+                            servings = 4
+                        }
+                    }
                 }
 
                 Section(header: Text("Photo")) {
@@ -112,17 +131,26 @@ struct AddRecipeView: View {
                 }
             }
             .navigationTitle("New Recipe")
-            .navigationBarItems(trailing: Button("Save") {
-                let nonEmptyIngredients = ingredients.filter { !$0.name.isEmpty }
-                let nonEmptyInstructions = instructions.filter { !$0.isEmpty }
-                viewModel.saveRecipe(
-                    title: title,
-                    ingredients: nonEmptyIngredients,
-                    instructions: nonEmptyInstructions,
-                    servings: servings,
-                    image: selectedImage
-                )
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        let nonEmptyIngredients = ingredients.filter { !$0.name.isEmpty }
+                        let nonEmptyInstructions = instructions.filter { !$0.isEmpty }
+                        viewModel.saveRecipe(
+                            title: title,
+                            ingredients: nonEmptyIngredients,
+                            instructions: nonEmptyInstructions,
+                            servings: servings,
+                            image: selectedImage
+                        )
+                    }
+                }
+            }
         }
         // Observe an Equatable value (the saved recipe's id) instead of the Recipe itself so we don't
         // need Recipe to conform to Equatable. UUID is Equatable so this satisfies onChange's requirement.

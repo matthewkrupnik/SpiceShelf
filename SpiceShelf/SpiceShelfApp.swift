@@ -6,10 +6,13 @@
 //
 
 import SwiftUI
+import SwiftData
 import CloudKit
 
 @main
 struct SpiceShelfApp: App {
+    
+    let dataStore = RecipeDataStore.shared
 
     init() {
         // Simple check for CloudKit availability to log status
@@ -30,6 +33,7 @@ struct SpiceShelfApp: App {
     var body: some Scene {
         WindowGroup {
             RecipeListView()
+                .modelContainer(dataStore.modelContainer)
         }
     }
 }

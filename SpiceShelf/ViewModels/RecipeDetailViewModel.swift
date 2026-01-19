@@ -1,11 +1,14 @@
 import Foundation
 import Combine
 
+@MainActor
 class RecipeDetailViewModel: ObservableObject {
     @Published var recipe: Recipe
     @Published var isShowingDeleteConfirmation: Bool = false
-    @Published var currentServings: Int
+    @Published var currentServings: Int?
     @Published var completedIngredients: Set<UUID> = []
+    @Published var error: AlertError?
+    @Published var isLoading: Bool = false
     private let cloudKitService: CloudKitServiceProtocol
 
     init(recipe: Recipe, cloudKitService: CloudKitServiceProtocol? = nil) {
@@ -14,9 +17,17 @@ class RecipeDetailViewModel: ObservableObject {
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
 
+    var canScale: Bool {
+        guard let servings = recipe.servings, servings > 0 else { return false }
+        return true
+    }
+
     var scaledIngredients: [Ingredient] {
-        guard recipe.servings > 0 else { return recipe.ingredients }
-        let scale = Double(currentServings) / Double(recipe.servings)
+        guard let recipeServings = recipe.servings, recipeServings > 0,
+              let current = currentServings, current > 0 else {
+            return recipe.ingredients
+        }
+        let scale = Double(current) / Double(recipeServings)
         return recipe.ingredients.map {
             var newIngredient = $0
             newIngredient.quantity = $0.quantity * scale
@@ -25,48 +36,39 @@ class RecipeDetailViewModel: ObservableObject {
     }
 
     func saveChanges() {
+        isLoading = true
+        error = nil
         print("[RecipeDetailViewModel] cloudKitService type = \(type(of: cloudKitService))")
         cloudKitService.updateRecipe(recipe) { [weak self] result in
-            let applyResult = {
+            Task { @MainActor in
+                self?.isLoading = false
                 switch result {
                 case .success(let updatedRecipe):
                     self?.recipe = updatedRecipe
-                    self?.currentServings = updatedRecipe.servings
-                    // Notify other parts of the app so they can refresh after an update
+                    if updatedRecipe.servings != nil {
+                        self?.currentServings = updatedRecipe.servings
+                    }
                     NotificationCenter.default.post(name: .recipeSaved, object: updatedRecipe)
-                case .failure(_):
-                    // Handle error if needed
-                    break
+                case .failure(let err):
+                    self?.error = AlertError(underlyingError: err)
                 }
-            }
-
-            if Thread.isMainThread {
-                applyResult()
-            } else {
-                DispatchQueue.main.async(execute: applyResult)
             }
         }
     }
 
-    // Make completion optional with a default so callers (including tests) can omit it.
     func deleteRecipe(completion: (() -> Void)? = nil) {
+        isLoading = true
+        error = nil
         cloudKitService.deleteRecipe(recipe) { [weak self] result in
-            let applyResult = {
+            Task { @MainActor in
+                self?.isLoading = false
                 switch result {
                 case .success:
                     completion?()
-                case .failure(_):
-                    // Optionally handle error (e.g., show an alert)
-                    break
+                case .failure(let err):
+                    self?.error = AlertError(underlyingError: err)
                 }
-                // Ensure the confirmation flag is reset
                 self?.isShowingDeleteConfirmation = false
-            }
-
-            if Thread.isMainThread {
-                applyResult()
-            } else {
-                DispatchQueue.main.async(execute: applyResult)
             }
         }
     }

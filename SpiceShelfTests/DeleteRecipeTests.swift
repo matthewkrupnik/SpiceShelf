@@ -1,6 +1,7 @@
 import XCTest
 @testable import SpiceShelf
 
+@MainActor
 class DeleteRecipeTests: XCTestCase {
     
     // Keep a strong reference to prevent premature deallocation during async operations
@@ -11,7 +12,7 @@ class DeleteRecipeTests: XCTestCase {
         super.tearDown()
     }
 
-    func testDeleteRecipe() {
+    func testDeleteRecipe() async {
         // Given
         let mockCloudKitService = MockCloudKitService()
         let recipe = Recipe(id: UUID(),
@@ -27,7 +28,7 @@ class DeleteRecipeTests: XCTestCase {
         viewModel?.deleteRecipe()
 
         // Then
-        waitForExpectations(timeout: 2.0, handler: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
 
         XCTAssertTrue(mockCloudKitService.deleteRecipeCalled)
     }

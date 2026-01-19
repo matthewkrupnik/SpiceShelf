@@ -1,9 +1,10 @@
 import XCTest
 @testable import SpiceShelf
 
+@MainActor
 class AddRecipeViewModelTests: XCTestCase {
 
-    func testSaveRecipe() {
+    func testSaveRecipe() async {
         print("Running testSaveRecipe")
         // Given
         let mockCloudKitService = MockCloudKitService()
@@ -22,7 +23,7 @@ class AddRecipeViewModelTests: XCTestCase {
                              instructions: instructions)
 
         // Then
-        waitForExpectations(timeout: 1.0, handler: nil)
+        await fulfillment(of: [expectation], timeout: 1.0)
 
         XCTAssertTrue(mockCloudKitService.saveRecipeCalled)
         XCTAssertEqual(mockCloudKitService.recipeSaved?.title, "Test Recipe")

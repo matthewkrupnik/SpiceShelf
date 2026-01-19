@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class ImportRecipeViewModel: ObservableObject {
     enum State {
         case idle
@@ -35,13 +36,13 @@ class ImportRecipeViewModel: ObservableObject {
         }
 
         recipeParserService.parseRecipe(from: parseURL) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self = self else { return }
 
                 switch result {
                 case .success(let recipe):
                     self.cloudKitService.saveRecipe(recipe) { result in
-                        DispatchQueue.main.async {
+                        Task { @MainActor in
                             switch result {
                             case .success:
                                 self.state = .success

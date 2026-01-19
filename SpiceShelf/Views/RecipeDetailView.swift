@@ -2,11 +2,15 @@ import SwiftUI
 import CloudKit
 
 struct RecipeDetailView: View {
-
-    @StateObject var viewModel: RecipeDetailViewModel
-    @Environment(\.presentationMode) var presentationMode
+    
+    @StateObject private var viewModel: RecipeDetailViewModel
+    @Environment(\.dismiss) private var dismiss
 
     @State private var isShowingEditView = false
+    
+    init(recipe: Recipe) {
+        _viewModel = StateObject(wrappedValue: RecipeDetailViewModel(recipe: recipe))
+    }
 
     var body: some View {
         ScrollView {
@@ -15,26 +19,11 @@ struct RecipeDetailView: View {
                 GeometryReader { geometry in
                     let minY = geometry.frame(in: .global).minY
                     ZStack(alignment: .bottomLeading) {
-                        if let imageAsset = viewModel.recipe.imageAsset,
-                           let fileURL = imageAsset.fileURL,
-                           let data = try? Data(contentsOf: fileURL),
-                           let uiImage = UIImage(data: data) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: geometry.size.width, height: geometry.size.height + (minY > 0 ? minY : 0))
-                                .clipped()
-                                .offset(y: (minY > 0 ? -minY : -minY)) // Sticky effect
-                        } else {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: geometry.size.width, height: geometry.size.height + (minY > 0 ? minY : 0))
-                                .offset(y: (minY > 0 ? -minY : -minY)) // Sticky effect
-                            Image(systemName: "photo")
-                                .font(.largeTitle)
-                                .foregroundColor(.gray)
-                                .offset(y: (minY > 0 ? -minY : -minY)) // Sticky effect
-                        }
+                        CachedAsyncImage(asset: viewModel.recipe.imageAsset)
+                            .frame(width: geometry.size.width, height: geometry.size.height + (minY > 0 ? minY : 0))
+                            .clipped()
+                            .offset(y: -minY)
+                            .accessibilityHidden(true)
 
                         // Title Overlay
                         LinearGradient(
@@ -43,78 +32,93 @@ struct RecipeDetailView: View {
                             endPoint: .top
                         )
                         .frame(height: 100)
+                        .accessibilityHidden(true)
 
                         Text(viewModel.recipe.title)
                             .font(.serifTitle())
                             .foregroundColor(.white)
                             .padding()
                             .shadow(radius: 4)
-                            .offset(y: (minY > 0 ? -minY : -minY)) // Sticky effect
+                            .offset(y: -minY)
+                            .accessibilityAddTraits(.isHeader)
                     }
                 }
                 .frame(height: 300)
 
                 VStack(alignment: .leading, spacing: 24) {
-                    // Controls
-                    HStack {
-                        Spacer()
+                    // Controls - only show if servings is known
+                    if viewModel.canScale {
                         HStack {
-                            Button(action: {
-                                if viewModel.currentServings > 1 { viewModel.currentServings -= 1 }
-                            }) {
-                                Image(systemName: "minus")
-                                    .padding(8)
-                                    .background(Color.offWhite)
-                                    .clipShape(Circle())
-                            }
+                            Spacer()
+                            HStack {
+                                Button(action: {
+                                    if let current = viewModel.currentServings, current > 1 {
+                                        viewModel.currentServings = current - 1
+                                    }
+                                }) {
+                                    Image(systemName: "minus")
+                                        .frame(width: 44, height: 44)
+                                        .background(Color.offWhite)
+                                        .clipShape(Circle())
+                                }
+                                .accessibilityLabel("Decrease servings")
+                                .accessibilityHint("Current servings: \(viewModel.currentServings ?? 0)")
 
-                            Text("\(viewModel.currentServings) Servings")
-                                .font(.headline)
-                                .frame(minWidth: 100)
+                                Text("\(viewModel.currentServings ?? 0) Servings")
+                                    .font(.headline)
+                                    .frame(minWidth: 100)
 
-                            Button(action: {
-                                viewModel.currentServings += 1
-                            }) {
-                                Image(systemName: "plus")
-                                    .padding(8)
-                                    .background(Color.offWhite)
-                                    .clipShape(Circle())
+                                Button(action: {
+                                    if let current = viewModel.currentServings {
+                                        viewModel.currentServings = current + 1
+                                    }
+                                }) {
+                                    Image(systemName: "plus")
+                                        .frame(width: 44, height: 44)
+                                        .background(Color.offWhite)
+                                        .clipShape(Circle())
+                                }
+                                .accessibilityLabel("Increase servings")
+                                .accessibilityHint("Current servings: \(viewModel.currentServings ?? 0)")
                             }
+                            .padding(8)
+                            .background(Color.subtleFill)
+                            .cornerRadius(25)
+                            Spacer()
                         }
-                        .padding(8)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(25)
-                        Spacer()
+                        .padding(.top)
                     }
-                    .padding(.top)
 
                     // Ingredients
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Ingredients")
                             .font(.serifHeading())
                             .foregroundColor(.sageGreen)
+                            .accessibilityAddTraits(.isHeader)
 
                         ForEach(viewModel.scaledIngredients, id: \.id) { ingredient in
+                            let isCompleted = viewModel.completedIngredients.contains(ingredient.id)
+                            let ingredientText = "\(ingredient.quantity > 0 ? "\(String(format: "%g", ingredient.quantity))" : "")" +
+                                "\(ingredient.quantity > 0 ? " \(ingredient.units) " : "")" +
+                                "\(ingredient.name)"
+                            
                             HStack {
-                                Image(systemName: viewModel.completedIngredients.contains(ingredient.id) ? "checkmark.circle.fill" : "circle")
+                                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                                     .foregroundColor(.sageGreen)
                                     .font(.title3)
+                                    .accessibilityHidden(true)
 
-                                Text(
-                                    "\(ingredient.quantity > 0 ? "\(String(format: "%g", ingredient.quantity))" : "")" +
-                                    "\(ingredient.quantity > 0 ? " \(ingredient.units) " : "")" +
-                                    "\(ingredient.name)"
-                                )
+                                Text(ingredientText)
                                 .font(.sansBody())
-                                .foregroundColor(viewModel.completedIngredients.contains(ingredient.id) ? .gray : .charcoal)
-                                .strikethrough(viewModel.completedIngredients.contains(ingredient.id))
+                                .foregroundColor(isCompleted ? .secondaryText : .charcoal)
+                                .strikethrough(isCompleted)
 
                                 Spacer()
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 withAnimation(.spring()) {
-                                    if viewModel.completedIngredients.contains(ingredient.id) {
+                                    if isCompleted {
                                         viewModel.completedIngredients.remove(ingredient.id)
                                     } else {
                                         viewModel.completedIngredients.insert(ingredient.id)
@@ -122,7 +126,11 @@ struct RecipeDetailView: View {
                                 }
                             }
                             .padding(.vertical, 4)
-                            Divider().background(Color.gray.opacity(0.2))
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(ingredientText)\(isCompleted ? ", completed" : "")")
+                            .accessibilityHint("Double tap to \(isCompleted ? "mark as needed" : "mark as complete")")
+                            .accessibilityAddTraits(.isButton)
+                            Divider().background(Color.subtleBorder)
                         }
                     }
 
@@ -131,6 +139,7 @@ struct RecipeDetailView: View {
                         Text("Instructions")
                             .font(.serifHeading())
                             .foregroundColor(.sageGreen)
+                            .accessibilityAddTraits(.isHeader)
 
                         ForEach(viewModel.recipe.instructions.indices, id: \.self) { index in
                             HStack(alignment: .top, spacing: 16) {
@@ -139,6 +148,7 @@ struct RecipeDetailView: View {
                                     .foregroundColor(.white)
                                     .frame(width: 30, height: 30)
                                     .background(Circle().fill(Color.terracotta))
+                                    .accessibilityHidden(true)
 
                                 Text(viewModel.recipe.instructions[index])
                                     .font(.sansBody())
@@ -146,6 +156,8 @@ struct RecipeDetailView: View {
                                     .lineSpacing(4)
                             }
                             .padding(.vertical, 8)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Step \(index + 1): \(viewModel.recipe.instructions[index])")
                         }
                     }
                 }
@@ -158,28 +170,22 @@ struct RecipeDetailView: View {
         .edgesIgnoringSafeArea(.top)
         .background(Color.offWhite)
         .navigationBarBackButtonHidden(true)
-        .navigationBarItems(
-            leading: Button(action: { self.presentationMode.wrappedValue.dismiss() }) {
-                Image(systemName: "arrow.left.circle.fill")
-                    .font(.title)
-                    .foregroundColor(.white)
-                    .shadow(radius: 2)
-            },
-            trailing: HStack {
-                Button(action: { viewModel.isShowingDeleteConfirmation = true }) {
-                    Image(systemName: "trash.circle.fill")
-                        .font(.title)
-                        .foregroundColor(.white)
-                        .shadow(radius: 2)
-                }
-                Button(action: { isShowingEditView = true }) {
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.title)
-                        .foregroundColor(.white)
-                        .shadow(radius: 2)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel", systemImage: "chevron.left") {
+                    dismiss()
                 }
             }
-        )
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("Draw", systemImage: "pencil") {
+                    isShowingEditView = true
+                }
+                
+                Button("Erase", systemImage: "trash") {
+                    viewModel.isShowingDeleteConfirmation = true
+                }
+            }
+        }
         .sheet(isPresented: $isShowingEditView) {
             EditRecipeView(viewModel: viewModel)
         }
@@ -189,11 +195,19 @@ struct RecipeDetailView: View {
                 message: Text("Are you sure you want to delete this recipe?"),
                 primaryButton: .destructive(Text("Delete")) {
                     viewModel.deleteRecipe {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     }
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .alert("Error", isPresented: .init(
+            get: { viewModel.error != nil },
+            set: { if !$0 { viewModel.error = nil } }
+        )) {
+            Button("OK") { viewModel.error = nil }
+        } message: {
+            Text(viewModel.error?.localizedDescription ?? "An unknown error occurred")
         }
     }
 }

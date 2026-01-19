@@ -1,6 +1,7 @@
 import XCTest
 @testable import SpiceShelf
 
+@MainActor
 class RecipeListViewModelTests: XCTestCase {
     
     // Keep a strong reference to prevent premature deallocation during async operations
@@ -13,7 +14,7 @@ class RecipeListViewModelTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFetchRecipes() {
+    func testFetchRecipes() async {
         print("Running testFetchRecipes")
         // Given
         mockCloudKitService = MockCloudKitService()
@@ -36,7 +37,7 @@ class RecipeListViewModelTests: XCTestCase {
             expectation.fulfill()
         }
 
-        wait(for: [expectation], timeout: 2)
+        await fulfillment(of: [expectation], timeout: 2)
     }
 
 }
