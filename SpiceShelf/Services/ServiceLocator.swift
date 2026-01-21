@@ -13,6 +13,7 @@ enum ServiceLocator {
 
     @MainActor
     static func currentCloudKitService() -> CloudKitServiceProtocol {
+        #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("UITestUseMockCloudKit") {
             if let mock = _sharedMockCloudKitService {
                 return mock
@@ -23,6 +24,7 @@ enum ServiceLocator {
                 return mock
             }
         }
+        #endif
 
         // Use offline-first service for production
         if let service = _sharedOfflineFirstService {

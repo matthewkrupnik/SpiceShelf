@@ -26,3 +26,4 @@ Thumbs.db
 *.orig
 *.rej
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+*.xcuserstate

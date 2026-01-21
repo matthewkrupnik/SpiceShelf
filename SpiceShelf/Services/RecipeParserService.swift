@@ -204,18 +204,58 @@ class RecipeParserService {
         
         guard isRecipe else { return nil }
 
-        let title = extractTitle(from: dict)
+        // Core properties
+        let name = extractTitle(from: dict)
+        let recipeDescription = extractDescription(from: dict)
+        let author = extractAuthor(from: dict)
+        let imageURL = extractImageURL(from: dict)
+        let datePublished = extractDatePublished(from: dict)
+        let keywords = extractKeywords(from: dict)
+        
+        // Recipe content
         let ingredients = parseIngredients(from: dict)
         let instructions = parseInstructions(from: dict)
-        let servings = parseServings(from: dict)
+        let (recipeYield, servings) = parseYield(from: dict)
+        
+        // Classification
+        let recipeCategory = extractString(from: dict, key: "recipeCategory")
+        let recipeCuisine = extractString(from: dict, key: "recipeCuisine")
+        let cookingMethod = extractString(from: dict, key: "cookingMethod")
+        let suitableForDiet = extractDiets(from: dict)
+        
+        // Time
+        let prepTime = extractDuration(from: dict, key: "prepTime")
+        let cookTime = extractDuration(from: dict, key: "cookTime")
+        let totalTime = extractDuration(from: dict, key: "totalTime")
+        
+        // Nutrition & Rating
+        let nutrition = extractNutrition(from: dict)
+        let aggregateRating = extractAggregateRating(from: dict)
 
-        return Recipe(id: UUID(),
-                      title: title,
-                      ingredients: ingredients,
-                      instructions: instructions,
-                      sourceURL: url.absoluteString,
-                      servings: servings,
-                      imageAsset: nil)
+        return Recipe(
+            id: UUID(),
+            name: name,
+            recipeDescription: recipeDescription,
+            author: author,
+            imageURL: imageURL,
+            datePublished: datePublished,
+            keywords: keywords,
+            recipeIngredient: ingredients,
+            recipeInstructions: instructions,
+            recipeYield: recipeYield,
+            servings: servings,
+            recipeCategory: recipeCategory,
+            recipeCuisine: recipeCuisine,
+            cookingMethod: cookingMethod,
+            suitableForDiet: suitableForDiet,
+            prepTime: prepTime,
+            cookTime: cookTime,
+            totalTime: totalTime,
+            nutrition: nutrition,
+            aggregateRating: aggregateRating,
+            sourceURL: url.absoluteString,
+            imageAsset: nil
+        )
     }
     
     private func extractTitle(from dict: [String: Any]) -> String {
@@ -226,6 +266,190 @@ class RecipeParserService {
             return decodeHTMLEntities(headline)
         }
         return "Imported Recipe"
+    }
+    
+    // MARK: - Schema.org Field Extraction
+    
+    private func extractDescription(from dict: [String: Any]) -> String? {
+        if let desc = dict["description"] as? String, !desc.isEmpty {
+            return decodeHTMLEntities(stripHTML(desc))
+        }
+        return nil
+    }
+    
+    private func extractAuthor(from dict: [String: Any]) -> RecipeAuthor? {
+        // Author can be a string, object, or array
+        if let authorStr = dict["author"] as? String, !authorStr.isEmpty {
+            return RecipeAuthor(name: decodeHTMLEntities(authorStr), url: nil)
+        }
+        
+        if let authorDict = dict["author"] as? [String: Any] {
+            let name = authorDict["name"] as? String
+            let url = authorDict["url"] as? String
+            if name != nil || url != nil {
+                return RecipeAuthor(name: name.map { decodeHTMLEntities($0) }, url: url)
+            }
+        }
+        
+        if let authors = dict["author"] as? [[String: Any]], let first = authors.first {
+            let name = first["name"] as? String
+            let url = first["url"] as? String
+            if name != nil || url != nil {
+                return RecipeAuthor(name: name.map { decodeHTMLEntities($0) }, url: url)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func extractImageURL(from dict: [String: Any]) -> String? {
+        // Image can be a string, object, or array
+        if let imageStr = dict["image"] as? String, !imageStr.isEmpty {
+            return imageStr
+        }
+        
+        if let imageDict = dict["image"] as? [String: Any] {
+            return imageDict["url"] as? String
+        }
+        
+        if let images = dict["image"] as? [String], let first = images.first {
+            return first
+        }
+        
+        if let images = dict["image"] as? [[String: Any]], let first = images.first {
+            return first["url"] as? String
+        }
+        
+        return nil
+    }
+    
+    private func extractDatePublished(from dict: [String: Any]) -> Date? {
+        guard let dateStr = dict["datePublished"] as? String else { return nil }
+        
+        let formatters: [DateFormatter] = {
+            let iso8601 = DateFormatter()
+            iso8601.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            
+            let iso8601NoTZ = DateFormatter()
+            iso8601NoTZ.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            
+            let dateOnly = DateFormatter()
+            dateOnly.dateFormat = "yyyy-MM-dd"
+            
+            return [iso8601, iso8601NoTZ, dateOnly]
+        }()
+        
+        for formatter in formatters {
+            if let date = formatter.date(from: dateStr) {
+                return date
+            }
+        }
+        return nil
+    }
+    
+    private func extractKeywords(from dict: [String: Any]) -> [String]? {
+        // Keywords can be a comma-separated string or array
+        if let keywordsStr = dict["keywords"] as? String, !keywordsStr.isEmpty {
+            let keywords = keywordsStr
+                .components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            return keywords.isEmpty ? nil : keywords
+        }
+        
+        if let keywords = dict["keywords"] as? [String] {
+            let filtered = keywords.filter { !$0.isEmpty }
+            return filtered.isEmpty ? nil : filtered
+        }
+        
+        return nil
+    }
+    
+    private func extractString(from dict: [String: Any], key: String) -> String? {
+        // Handle both string and array (take first)
+        if let str = dict[key] as? String, !str.isEmpty {
+            return decodeHTMLEntities(str)
+        }
+        if let arr = dict[key] as? [String], let first = arr.first, !first.isEmpty {
+            return decodeHTMLEntities(first)
+        }
+        return nil
+    }
+    
+    private func extractDiets(from dict: [String: Any]) -> [String]? {
+        // suitableForDiet can be string or array
+        if let diet = dict["suitableForDiet"] as? String, !diet.isEmpty {
+            return [diet]
+        }
+        if let diets = dict["suitableForDiet"] as? [String] {
+            let filtered = diets.filter { !$0.isEmpty }
+            return filtered.isEmpty ? nil : filtered
+        }
+        return nil
+    }
+    
+    private func extractDuration(from dict: [String: Any], key: String) -> RecipeDuration? {
+        guard let durationStr = dict[key] as? String, !durationStr.isEmpty else { return nil }
+        let duration = RecipeDuration.fromISO8601(durationStr)
+        return duration.totalMinutes != nil ? duration : nil
+    }
+    
+    private func extractNutrition(from dict: [String: Any]) -> NutritionInfo? {
+        guard let nutritionDict = dict["nutrition"] as? [String: Any] else { return nil }
+        
+        let info = NutritionInfo(
+            calories: nutritionDict["calories"] as? String,
+            fatContent: nutritionDict["fatContent"] as? String,
+            saturatedFatContent: nutritionDict["saturatedFatContent"] as? String,
+            cholesterolContent: nutritionDict["cholesterolContent"] as? String,
+            sodiumContent: nutritionDict["sodiumContent"] as? String,
+            carbohydrateContent: nutritionDict["carbohydrateContent"] as? String,
+            fiberContent: nutritionDict["fiberContent"] as? String,
+            sugarContent: nutritionDict["sugarContent"] as? String,
+            proteinContent: nutritionDict["proteinContent"] as? String,
+            servingSize: nutritionDict["servingSize"] as? String
+        )
+        
+        // Only return if at least one field is present
+        if info.calories != nil || info.fatContent != nil || info.proteinContent != nil ||
+           info.carbohydrateContent != nil || info.sodiumContent != nil {
+            return info
+        }
+        return nil
+    }
+    
+    private func extractAggregateRating(from dict: [String: Any]) -> AggregateRating? {
+        guard let ratingDict = dict["aggregateRating"] as? [String: Any] else { return nil }
+        
+        let ratingValue: Double? = {
+            if let val = ratingDict["ratingValue"] as? Double { return val }
+            if let val = ratingDict["ratingValue"] as? Int { return Double(val) }
+            if let str = ratingDict["ratingValue"] as? String { return Double(str) }
+            return nil
+        }()
+        
+        let ratingCount: Int? = {
+            if let val = ratingDict["ratingCount"] as? Int { return val }
+            if let str = ratingDict["ratingCount"] as? String { return Int(str) }
+            return nil
+        }()
+        
+        let reviewCount: Int? = {
+            if let val = ratingDict["reviewCount"] as? Int { return val }
+            if let str = ratingDict["reviewCount"] as? String { return Int(str) }
+            return nil
+        }()
+        
+        if ratingValue != nil || ratingCount != nil || reviewCount != nil {
+            return AggregateRating(
+                ratingValue: ratingValue,
+                ratingCount: ratingCount,
+                reviewCount: reviewCount,
+                bestRating: ratingDict["bestRating"] as? Double ?? 5,
+                worstRating: ratingDict["worstRating"] as? Double ?? 1
+            )
+        }
+        return nil
     }
 
     func parseIngredients(from dict: [String: Any]) -> [Ingredient] {
@@ -270,31 +494,47 @@ class RecipeParserService {
     }
 
     func parseServings(from dict: [String: Any]) -> Int? {
+        return parseYield(from: dict).1
+    }
+    
+    func parseYield(from dict: [String: Any]) -> (String?, Int?) {
+        var yieldString: String? = nil
+        var servings: Int? = nil
+        
         // Handle array of yields
         if let yields = dict["recipeYield"] as? [Any] {
             for yield in yields {
                 if let yieldInt = yield as? Int, yieldInt > 0 {
-                    return yieldInt
+                    servings = yieldInt
+                    yieldString = "\(yieldInt) servings"
+                    break
                 }
-                if let yieldStr = yield as? String, let parsed = extractNumber(from: yieldStr), parsed > 0 {
-                    return parsed
+                if let yieldStr = yield as? String {
+                    yieldString = decodeHTMLEntities(yieldStr)
+                    if let parsed = extractNumber(from: yieldStr), parsed > 0 {
+                        servings = parsed
+                    }
+                    break
                 }
             }
+            return (yieldString, servings)
         }
         
         // Handle string yield
         if let yield = dict["recipeYield"] as? String {
+            yieldString = decodeHTMLEntities(yield)
             if let parsed = extractNumber(from: yield), parsed > 0 {
-                return parsed
+                servings = parsed
             }
+            return (yieldString, servings)
         }
         
         // Handle integer yield
         if let yieldInt = dict["recipeYield"] as? Int, yieldInt > 0 {
-            return yieldInt
+            return ("\(yieldInt) servings", yieldInt)
         }
         
-        return nil
+        return (nil, nil)
     }
     
     private func extractNumber(from string: String) -> Int? {
