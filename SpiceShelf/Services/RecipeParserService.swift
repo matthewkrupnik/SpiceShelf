@@ -208,13 +208,13 @@ class RecipeParserService {
         let name = extractTitle(from: dict)
         let recipeDescription = extractDescription(from: dict)
         let author = extractAuthor(from: dict)
-        let imageURL = extractImageURL(from: dict)
+        let images = extractImages(from: dict)
         let datePublished = extractDatePublished(from: dict)
         let keywords = extractKeywords(from: dict)
         
         // Recipe content
         let ingredients = parseIngredients(from: dict)
-        let instructions = parseInstructions(from: dict)
+        let (instructionSteps, instructionSections) = parseInstructions(from: dict)
         let (recipeYield, servings) = parseYield(from: dict)
         
         // Classification
@@ -231,17 +231,21 @@ class RecipeParserService {
         // Nutrition & Rating
         let nutrition = extractNutrition(from: dict)
         let aggregateRating = extractAggregateRating(from: dict)
+        
+        // Video
+        let video = extractVideo(from: dict)
 
         return Recipe(
             id: UUID(),
             name: name,
             recipeDescription: recipeDescription,
             author: author,
-            imageURL: imageURL,
+            images: images,
             datePublished: datePublished,
             keywords: keywords,
             recipeIngredient: ingredients,
-            recipeInstructions: instructions,
+            instructionSteps: instructionSteps,
+            instructionSections: instructionSections,
             recipeYield: recipeYield,
             servings: servings,
             recipeCategory: recipeCategory,
@@ -253,6 +257,7 @@ class RecipeParserService {
             totalTime: totalTime,
             nutrition: nutrition,
             aggregateRating: aggregateRating,
+            video: video,
             sourceURL: url.absoluteString,
             imageAsset: nil
         )
@@ -302,22 +307,25 @@ class RecipeParserService {
         return nil
     }
     
-    private func extractImageURL(from dict: [String: Any]) -> String? {
+    private func extractImages(from dict: [String: Any]) -> [String]? {
         // Image can be a string, object, or array
         if let imageStr = dict["image"] as? String, !imageStr.isEmpty {
-            return imageStr
+            return [imageStr]
         }
         
-        if let imageDict = dict["image"] as? [String: Any] {
-            return imageDict["url"] as? String
+        if let imageDict = dict["image"] as? [String: Any],
+           let url = imageDict["url"] as? String {
+            return [url]
         }
         
-        if let images = dict["image"] as? [String], let first = images.first {
-            return first
+        if let images = dict["image"] as? [String] {
+            let filtered = images.filter { !$0.isEmpty }
+            return filtered.isEmpty ? nil : filtered
         }
         
-        if let images = dict["image"] as? [[String: Any]], let first = images.first {
-            return first["url"] as? String
+        if let images = dict["image"] as? [[String: Any]] {
+            let urls = images.compactMap { $0["url"] as? String }
+            return urls.isEmpty ? nil : urls
         }
         
         return nil
@@ -451,46 +459,126 @@ class RecipeParserService {
         }
         return nil
     }
+    
+    private func extractVideo(from dict: [String: Any]) -> RecipeVideo? {
+        guard let videoDict = dict["video"] as? [String: Any] else { return nil }
+        
+        // Extract thumbnails (can be string or array)
+        var thumbnails: [String]? = nil
+        if let thumb = videoDict["thumbnailUrl"] as? String {
+            thumbnails = [thumb]
+        } else if let thumbs = videoDict["thumbnailUrl"] as? [String] {
+            thumbnails = thumbs.filter { !$0.isEmpty }
+        }
+        
+        // Extract upload date
+        var uploadDate: Date? = nil
+        if let dateStr = videoDict["uploadDate"] as? String {
+            uploadDate = ISO8601DateFormatter().date(from: dateStr)
+        }
+        
+        // Extract duration
+        var duration: RecipeDuration? = nil
+        if let durationStr = videoDict["duration"] as? String {
+            duration = RecipeDuration.fromISO8601(durationStr)
+        }
+        
+        let video = RecipeVideo(
+            name: videoDict["name"] as? String,
+            videoDescription: videoDict["description"] as? String,
+            thumbnailUrl: thumbnails,
+            contentUrl: videoDict["contentUrl"] as? String,
+            embedUrl: videoDict["embedUrl"] as? String,
+            uploadDate: uploadDate,
+            duration: duration
+        )
+        
+        // Only return if at least one meaningful field is present
+        if video.contentUrl != nil || video.embedUrl != nil || video.name != nil {
+            return video
+        }
+        return nil
+    }
 
     func parseIngredients(from dict: [String: Any]) -> [Ingredient] {
         guard let ingredientList = dict["recipeIngredient"] as? [String] else { return [] }
         return ingredientList.map { RecipeParserService.parseIngredientString(decodeHTMLEntities($0)) }
     }
 
-    func parseInstructions(from dict: [String: Any]) -> [String] {
+    func parseInstructions(from dict: [String: Any]) -> ([HowToStep], [HowToSection]?) {
+        var steps: [HowToStep] = []
+        var sections: [HowToSection] = []
+        
         // Handle HowToStep objects
         if let list = dict["recipeInstructions"] as? [[String: Any]] {
-            return list.compactMap { step -> String? in
-                // HowToStep or HowToSection
-                if let text = step["text"] as? String {
-                    return decodeHTMLEntities(stripHTML(text))
-                }
+            for item in list {
+                let itemType = item["@type"] as? String
+                
                 // HowToSection with itemListElement
-                if let items = step["itemListElement"] as? [[String: Any]] {
-                    return items.compactMap { $0["text"] as? String }
-                        .map { decodeHTMLEntities(stripHTML($0)) }
-                        .joined(separator: " ")
+                if itemType == "HowToSection" {
+                    let sectionName = item["name"] as? String ?? "Section"
+                    var sectionSteps: [HowToStep] = []
+                    
+                    if let items = item["itemListElement"] as? [[String: Any]] {
+                        for stepItem in items {
+                            if let text = stepItem["text"] as? String {
+                                let step = HowToStep(
+                                    name: stepItem["name"] as? String,
+                                    text: decodeHTMLEntities(stripHTML(text)),
+                                    url: stepItem["url"] as? String,
+                                    image: extractStepImage(from: stepItem)
+                                )
+                                sectionSteps.append(step)
+                            }
+                        }
+                    }
+                    
+                    if !sectionSteps.isEmpty {
+                        sections.append(HowToSection(name: sectionName, steps: sectionSteps))
+                    }
                 }
-                return nil
-            }.filter { !$0.isEmpty }
+                // HowToStep
+                else if let text = item["text"] as? String, !text.isEmpty {
+                    let step = HowToStep(
+                        name: item["name"] as? String,
+                        text: decodeHTMLEntities(stripHTML(text)),
+                        url: item["url"] as? String,
+                        image: extractStepImage(from: item)
+                    )
+                    steps.append(step)
+                }
+            }
         }
         
         // Handle simple string array
-        if let list = dict["recipeInstructions"] as? [String] {
-            return list.map { decodeHTMLEntities(stripHTML($0)) }.filter { !$0.isEmpty }
+        else if let list = dict["recipeInstructions"] as? [String] {
+            steps = list
+                .map { decodeHTMLEntities(stripHTML($0)) }
+                .filter { !$0.isEmpty }
+                .map { HowToStep($0) }
         }
         
         // Handle single string (sometimes with line breaks)
-        if let str = dict["recipeInstructions"] as? String {
+        else if let str = dict["recipeInstructions"] as? String {
             let cleaned = decodeHTMLEntities(stripHTML(str))
             // Split by common delimiters
-            let steps = cleaned.components(separatedBy: CharacterSet.newlines)
+            steps = cleaned.components(separatedBy: CharacterSet.newlines)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
-            return steps
+                .map { HowToStep($0) }
         }
         
-        return []
+        return (steps, sections.isEmpty ? nil : sections)
+    }
+    
+    private func extractStepImage(from step: [String: Any]) -> String? {
+        if let imageStr = step["image"] as? String {
+            return imageStr
+        }
+        if let imageDict = step["image"] as? [String: Any] {
+            return imageDict["url"] as? String
+        }
+        return nil
     }
 
     func parseServings(from dict: [String: Any]) -> Int? {

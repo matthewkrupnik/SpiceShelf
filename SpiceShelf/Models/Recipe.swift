@@ -4,8 +4,83 @@ import CloudKit
 // MARK: - Schema.org Recipe Model
 // Based on https://schema.org/Recipe specification
 
+// MARK: - JSON Encoding Helpers (for SwiftData @Model compatibility)
+// These use manual encoding to avoid MainActor isolation issues with synthesized Codable
+
+enum RecipeJSONHelper {
+    static func encodeNutrition(_ nutrition: NutritionInfo?) -> String? {
+        guard let nutrition = nutrition else { return nil }
+        var dict: [String: String] = [:]
+        if let v = nutrition.calories { dict["calories"] = v }
+        if let v = nutrition.fatContent { dict["fatContent"] = v }
+        if let v = nutrition.saturatedFatContent { dict["saturatedFatContent"] = v }
+        if let v = nutrition.cholesterolContent { dict["cholesterolContent"] = v }
+        if let v = nutrition.sodiumContent { dict["sodiumContent"] = v }
+        if let v = nutrition.carbohydrateContent { dict["carbohydrateContent"] = v }
+        if let v = nutrition.fiberContent { dict["fiberContent"] = v }
+        if let v = nutrition.sugarContent { dict["sugarContent"] = v }
+        if let v = nutrition.proteinContent { dict["proteinContent"] = v }
+        if let v = nutrition.servingSize { dict["servingSize"] = v }
+        guard !dict.isEmpty, let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    static func decodeNutrition(_ json: String?) -> NutritionInfo? {
+        guard let json = json, let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return nil }
+        return NutritionInfo(
+            calories: dict["calories"],
+            fatContent: dict["fatContent"],
+            saturatedFatContent: dict["saturatedFatContent"],
+            cholesterolContent: dict["cholesterolContent"],
+            sodiumContent: dict["sodiumContent"],
+            carbohydrateContent: dict["carbohydrateContent"],
+            fiberContent: dict["fiberContent"],
+            sugarContent: dict["sugarContent"],
+            proteinContent: dict["proteinContent"],
+            servingSize: dict["servingSize"]
+        )
+    }
+    
+    static func encodeVideo(_ video: RecipeVideo?) -> String? {
+        guard let video = video else { return nil }
+        var dict: [String: Any] = [:]
+        if let v = video.name { dict["name"] = v }
+        if let v = video.videoDescription { dict["description"] = v }
+        if let v = video.thumbnailUrl { dict["thumbnailUrl"] = v }
+        if let v = video.contentUrl { dict["contentUrl"] = v }
+        if let v = video.embedUrl { dict["embedUrl"] = v }
+        if let v = video.uploadDate { dict["uploadDate"] = ISO8601DateFormatter().string(from: v) }
+        if let v = video.duration?.iso8601 { dict["duration"] = v }
+        guard !dict.isEmpty, let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    static func decodeVideo(_ json: String?) -> RecipeVideo? {
+        guard let json = json, let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        var uploadDate: Date? = nil
+        if let dateStr = dict["uploadDate"] as? String {
+            uploadDate = ISO8601DateFormatter().date(from: dateStr)
+        }
+        var duration: RecipeDuration? = nil
+        if let durationStr = dict["duration"] as? String {
+            duration = RecipeDuration.fromISO8601(durationStr)
+        }
+        return RecipeVideo(
+            name: dict["name"] as? String,
+            videoDescription: dict["description"] as? String,
+            thumbnailUrl: dict["thumbnailUrl"] as? [String],
+            contentUrl: dict["contentUrl"] as? String,
+            embedUrl: dict["embedUrl"] as? String,
+            uploadDate: uploadDate,
+            duration: duration
+        )
+    }
+}
+
 /// Nutrition information for a recipe (Schema.org NutritionInformation)
-struct NutritionInfo: Codable, Hashable {
+struct NutritionInfo: Codable, Hashable, Sendable {
     var calories: String?           // e.g., "240 calories"
     var fatContent: String?         // e.g., "9 grams"
     var saturatedFatContent: String?
@@ -19,7 +94,7 @@ struct NutritionInfo: Codable, Hashable {
 }
 
 /// Duration representation for cook/prep times (ISO 8601 format)
-struct RecipeDuration: Codable, Hashable {
+struct RecipeDuration: Codable, Hashable, Sendable {
     var iso8601: String?  // Original ISO 8601 string (e.g., "PT1H30M")
     var totalMinutes: Int?
     
@@ -98,8 +173,63 @@ struct AggregateRating: Codable, Hashable {
     var worstRating: Double?    // e.g., 1
 }
 
+/// A single step in recipe instructions (Schema.org HowToStep)
+struct HowToStep: Codable, Hashable, Identifiable {
+    var id: UUID = UUID()
+    var name: String?           // Optional step title (e.g., "Preheat")
+    var text: String            // The instruction text
+    var url: String?            // URL to this step (e.g., "https://example.com/recipe#step1")
+    var image: String?          // Image URL for this step
+    
+    init(id: UUID = UUID(), name: String? = nil, text: String, url: String? = nil, image: String? = nil) {
+        self.id = id
+        self.name = name
+        self.text = text
+        self.url = url
+        self.image = image
+    }
+    
+    /// Convenience initializer from plain text
+    init(_ text: String) {
+        self.id = UUID()
+        self.name = nil
+        self.text = text
+        self.url = nil
+        self.image = nil
+    }
+}
+
+/// A section of steps in recipe instructions (Schema.org HowToSection)
+struct HowToSection: Codable, Hashable, Identifiable {
+    var id: UUID = UUID()
+    var name: String            // Section title (e.g., "Prepare the dough")
+    var steps: [HowToStep]      // Steps in this section
+    
+    init(id: UUID = UUID(), name: String, steps: [HowToStep] = []) {
+        self.id = id
+        self.name = name
+        self.steps = steps
+    }
+}
+
+/// Video information for a recipe (Schema.org VideoObject)
+struct RecipeVideo: Codable, Hashable, Sendable {
+    var name: String?                   // Video title
+    var videoDescription: String?       // Video description
+    var thumbnailUrl: [String]?         // Thumbnail images (multiple aspect ratios)
+    var contentUrl: String?             // Direct URL to video file
+    var embedUrl: String?               // Embeddable player URL
+    var uploadDate: Date?               // When video was uploaded
+    var duration: RecipeDuration?       // Video length
+    
+    enum CodingKeys: String, CodingKey {
+        case name, thumbnailUrl, contentUrl, embedUrl, uploadDate, duration
+        case videoDescription = "description"
+    }
+}
+
 /// Author/creator information (Schema.org Person or Organization)
-struct RecipeAuthor: Codable, Hashable {
+struct RecipeAuthor: Codable, Hashable, Sendable {
     var name: String?
     var url: String?
 }
@@ -128,8 +258,20 @@ struct Recipe: Identifiable, Hashable, Codable {
     /// The author/creator (Schema.org: author)
     var author: RecipeAuthor?
     
-    /// URL of the image (Schema.org: image)
-    var imageURL: String?
+    /// URLs of images (Schema.org: image) - supports multiple aspect ratios
+    var images: [String]?
+    
+    /// Primary image URL (first from images array, for convenience)
+    var imageURL: String? {
+        get { images?.first }
+        set {
+            if let url = newValue {
+                images = [url]
+            } else {
+                images = nil
+            }
+        }
+    }
     
     /// Date published (Schema.org: datePublished)
     var datePublished: Date?
@@ -142,8 +284,17 @@ struct Recipe: Identifiable, Hashable, Codable {
     /// List of ingredients (Schema.org: recipeIngredient)
     var recipeIngredient: [Ingredient]
     
-    /// Step-by-step instructions (Schema.org: recipeInstructions)
-    var recipeInstructions: [String]
+    /// Step-by-step instructions as rich HowToStep objects (Schema.org: recipeInstructions)
+    var instructionSteps: [HowToStep]
+    
+    /// Instruction sections for complex recipes (Schema.org: HowToSection)
+    var instructionSections: [HowToSection]?
+    
+    /// Plain text instructions (computed from instructionSteps for backward compatibility)
+    var recipeInstructions: [String] {
+        get { instructionSteps.map { $0.text } }
+        set { instructionSteps = newValue.map { HowToStep($0) } }
+    }
     
     /// Quantity produced (Schema.org: recipeYield)
     /// Can be servings count or descriptive (e.g., "1 loaf", "4 servings")
@@ -183,6 +334,11 @@ struct Recipe: Identifiable, Hashable, Codable {
     /// Aggregate rating (Schema.org: aggregateRating)
     var aggregateRating: AggregateRating?
     
+    // MARK: - Media
+    
+    /// Video showing how to make the recipe (Schema.org: video)
+    var video: RecipeVideo?
+    
     // MARK: - Source & Metadata
     
     /// Source URL where recipe was imported from (Schema.org: url)
@@ -194,11 +350,11 @@ struct Recipe: Identifiable, Hashable, Codable {
     var imageAsset: CKAsset? = nil
     
     enum CodingKeys: String, CodingKey {
-        case id, name, recipeDescription, author, imageURL, datePublished, keywords
-        case recipeIngredient, recipeInstructions, recipeYield, servings
+        case id, name, recipeDescription, author, images, datePublished, keywords
+        case recipeIngredient, instructionSteps, instructionSections, recipeYield, servings
         case recipeCategory, recipeCuisine, cookingMethod, suitableForDiet
         case prepTime, cookTime, totalTime
-        case nutrition, aggregateRating, sourceURL
+        case nutrition, aggregateRating, video, sourceURL
     }
     
     // MARK: - Backward Compatibility
@@ -221,6 +377,17 @@ struct Recipe: Identifiable, Hashable, Codable {
         set { recipeInstructions = newValue }
     }
     
+    /// All steps flattened (from both instructionSteps and instructionSections)
+    var allSteps: [HowToStep] {
+        var steps = instructionSteps
+        if let sections = instructionSections {
+            for section in sections {
+                steps.append(contentsOf: section.steps)
+            }
+        }
+        return steps
+    }
+    
     // MARK: - Initializers
     
     /// Full initializer with all Schema.org properties
@@ -229,11 +396,12 @@ struct Recipe: Identifiable, Hashable, Codable {
         name: String,
         recipeDescription: String? = nil,
         author: RecipeAuthor? = nil,
-        imageURL: String? = nil,
+        images: [String]? = nil,
         datePublished: Date? = nil,
         keywords: [String]? = nil,
         recipeIngredient: [Ingredient] = [],
-        recipeInstructions: [String] = [],
+        instructionSteps: [HowToStep] = [],
+        instructionSections: [HowToSection]? = nil,
         recipeYield: String? = nil,
         servings: Int? = nil,
         recipeCategory: String? = nil,
@@ -245,6 +413,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         totalTime: RecipeDuration? = nil,
         nutrition: NutritionInfo? = nil,
         aggregateRating: AggregateRating? = nil,
+        video: RecipeVideo? = nil,
         sourceURL: String? = nil,
         imageAsset: CKAsset? = nil
     ) {
@@ -252,11 +421,12 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.name = name
         self.recipeDescription = recipeDescription
         self.author = author
-        self.imageURL = imageURL
+        self.images = images
         self.datePublished = datePublished
         self.keywords = keywords
         self.recipeIngredient = recipeIngredient
-        self.recipeInstructions = recipeInstructions
+        self.instructionSteps = instructionSteps
+        self.instructionSections = instructionSections
         self.recipeYield = recipeYield
         self.servings = servings
         self.recipeCategory = recipeCategory
@@ -268,6 +438,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.totalTime = totalTime
         self.nutrition = nutrition
         self.aggregateRating = aggregateRating
+        self.video = video
         self.sourceURL = sourceURL
         self.imageAsset = imageAsset
     }
@@ -285,7 +456,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.id = id
         self.name = title
         self.recipeIngredient = ingredients
-        self.recipeInstructions = instructions
+        self.instructionSteps = instructions.map { HowToStep($0) }
         self.sourceURL = sourceURL
         self.servings = servings
         self.imageAsset = imageAsset
@@ -293,7 +464,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         // Initialize other properties to nil
         self.recipeDescription = nil
         self.author = nil
-        self.imageURL = nil
+        self.images = nil
         self.datePublished = nil
         self.keywords = nil
         self.recipeYield = servings != nil ? "\(servings!) servings" : nil
@@ -306,5 +477,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.totalTime = nil
         self.nutrition = nil
         self.aggregateRating = nil
+        self.instructionSections = nil
+        self.video = nil
     }
 }

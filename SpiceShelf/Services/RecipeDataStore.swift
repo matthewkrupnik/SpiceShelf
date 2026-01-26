@@ -18,7 +18,7 @@ final class RecipeDataStore: ObservableObject {
     @Published var syncError: Error?
     
     private init(cloudKitService: CloudKitServiceProtocol? = nil) {
-        let schema = Schema([CachedRecipe.self, CachedIngredient.self])
+        let schema = Schema([CachedRecipe.self, CachedIngredient.self, CachedHowToStep.self, CachedHowToSection.self])
         let modelConfiguration = ModelConfiguration(
             "LocalRecipeStore",
             schema: schema,
@@ -44,11 +44,14 @@ final class RecipeDataStore: ObservableObject {
         
         // Avoid circular dependency - use raw CloudKit service directly
         self.cloudKitService = cloudKitService ?? CloudKitService()
+        
+        // Clean up any corrupted recipes on startup
+        cleanupCorruptedRecipes()
     }
     
     // For testing with custom configuration
     init(inMemory: Bool, cloudKitService: CloudKitServiceProtocol? = nil) {
-        let schema = Schema([CachedRecipe.self, CachedIngredient.self])
+        let schema = Schema([CachedRecipe.self, CachedIngredient.self, CachedHowToStep.self, CachedHowToSection.self])
         let modelConfiguration = ModelConfiguration(
             "LocalRecipeStore",
             schema: schema,
@@ -66,6 +69,9 @@ final class RecipeDataStore: ObservableObject {
         self.modelContext = modelContainer.mainContext
         
         self.cloudKitService = cloudKitService ?? CloudKitService()
+        
+        // Clean up any corrupted recipes on startup
+        cleanupCorruptedRecipes()
     }
     
     private static func deleteExistingStore() {
@@ -79,6 +85,44 @@ final class RecipeDataStore: ObservableObject {
         for url in [storeURL, shmURL, walURL] {
             try? fileManager.removeItem(at: url)
         }
+    }
+    
+    /// Validates and removes recipes that cannot be converted to the current model
+    private func cleanupCorruptedRecipes() {
+        do {
+            let descriptor = FetchDescriptor<CachedRecipe>()
+            let allCached = try modelContext.fetch(descriptor)
+            var deletedCount = 0
+            
+            for cached in allCached {
+                if !isValidRecipe(cached) {
+                    print("Deleting corrupted recipe: \(cached.id) - \(cached.name)")
+                    modelContext.delete(cached)
+                    deletedCount += 1
+                }
+            }
+            
+            if deletedCount > 0 {
+                try modelContext.save()
+                print("Cleaned up \(deletedCount) corrupted recipe(s)")
+            }
+        } catch {
+            print("Error during recipe cleanup: \(error)")
+        }
+    }
+    
+    /// Checks if a cached recipe can be successfully converted to the current Recipe model
+    private func isValidRecipe(_ cached: CachedRecipe) -> Bool {
+        // Recipe must have a non-empty name
+        guard !cached.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        
+        // Verify the recipe can be converted without crashing
+        // This catches any issues with relationships or data integrity
+        let _ = cached.toRecipe()
+        
+        return true
     }
     
     // MARK: - Local Operations

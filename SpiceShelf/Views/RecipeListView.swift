@@ -5,6 +5,7 @@ struct RecipeListView: View {
     @StateObject private var viewModel = RecipeListViewModel()
     @State private var isShowingAddRecipeView = false
     @State private var isShowingImportRecipeView = false
+    @Namespace private var heroNamespace
     
     let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -12,7 +13,7 @@ struct RecipeListView: View {
     ]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.offWhite.edgesIgnoringSafeArea(.all)
                 
@@ -20,23 +21,55 @@ struct RecipeListView: View {
                 case .loading:
                     ProgressView()
                 case .loaded:
-                    if viewModel.recipes.isEmpty {
+                    if viewModel.filteredRecipes.isEmpty && !viewModel.searchText.isEmpty {
+                        ContentUnavailableView.search(text: viewModel.searchText)
+                    } else if viewModel.recipes.isEmpty {
                         EmptyStateView {
                             isShowingAddRecipeView = true
                         }
                     } else {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 16) {
-                                ForEach(viewModel.recipes) { recipe in
-                                    NavigationLink(
-                                        destination: RecipeDetailView(recipe: recipe)
-                                    ) {
+                                ForEach(viewModel.filteredRecipes) { recipe in
+                                    NavigationLink(value: recipe) {
                                         RecipeCardView(recipe: recipe)
+                                            .matchedTransitionSource(id: recipe.id, in: heroNamespace)
                                     }
                                     .buttonStyle(PlainButtonStyle())
+                                    .contextMenu {
+                                        Button {
+                                            UIPasteboard.general.string = recipe.title
+                                            HapticStyle.light.trigger()
+                                        } label: {
+                                            Label("Copy Title", systemImage: "doc.on.doc")
+                                        }
+                                        
+                                        if let url = recipe.sourceURL {
+                                            ShareLink(item: URL(string: url)!) {
+                                                Label("Share Source", systemImage: "square.and.arrow.up")
+                                            }
+                                        }
+                                        
+                                        Divider()
+                                        
+                                        Button(role: .destructive) {
+                                            viewModel.recipeToDelete = recipe
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                                 }
                             }
                             .padding()
+                        }
+                        .refreshable {
+                            await withCheckedContinuation { continuation in
+                                viewModel.fetchRecipes()
+                                // Give time for fetch to complete
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                    continuation.resume()
+                                }
+                            }
                         }
                     }
                 case .error:
@@ -49,26 +82,53 @@ struct RecipeListView: View {
                 }
             }
             .navigationTitle("SpiceShelf")
+            .searchable(text: $viewModel.searchText, prompt: "Search recipes")
+            .navigationDestination(for: Recipe.self) { recipe in
+                RecipeDetailView(recipe: recipe)
+                    .navigationTransition(.zoom(sourceID: recipe.id, in: heroNamespace))
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Import Recipe", systemImage: "square.and.arrow.down") {
                         isShowingImportRecipeView = true
                     }
+                    .glassEffect()
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add Recipe", systemImage: "plus") {
                         isShowingAddRecipeView = true
                     }
+                    .glassEffect()
                 }
             }
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .sheet(isPresented: $isShowingAddRecipeView) {
                 AddRecipeView()
+                    .presentationBackground(.regularMaterial)
+                    .presentationCornerRadius(24)
             }
             .sheet(isPresented: $isShowingImportRecipeView) {
                 ImportRecipeView()
+                    .presentationBackground(.regularMaterial)
+                    .presentationCornerRadius(24)
             }
             .onAppear {
                 viewModel.fetchRecipes()
+            }
+            .alert("Delete Recipe", isPresented: .init(
+                get: { viewModel.recipeToDelete != nil },
+                set: { if !$0 { viewModel.recipeToDelete = nil } }
+            )) {
+                Button("Cancel", role: .cancel) {
+                    viewModel.recipeToDelete = nil
+                }
+                Button("Delete", role: .destructive) {
+                    if let recipe = viewModel.recipeToDelete {
+                        viewModel.deleteRecipe(recipe)
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to delete \"\(viewModel.recipeToDelete?.title ?? "")\"?")
             }
         }
     }
@@ -82,6 +142,7 @@ struct EmptyStateView: View {
             Image(systemName: "basket")
                 .font(.system(size: 60))
                 .foregroundColor(.sageGreen.opacity(0.5))
+                .symbolEffect(.bounce, options: .repeat(2))
             Text("Your shelf is empty")
                 .font(.serifHeading())
                 .foregroundColor(.charcoal)
@@ -107,23 +168,42 @@ struct RecipeCardView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let imageAsset = recipe.imageAsset,
-               let fileURL = imageAsset.fileURL,
-               let data = try? Data(contentsOf: fileURL),
-               let uiImage = UIImage(data: data) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+            ZStack(alignment: .topTrailing) {
+                if let imageAsset = recipe.imageAsset,
+                   let fileURL = imageAsset.fileURL,
+                   let data = try? Data(contentsOf: fileURL),
+                   let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 160)
+                        .clipped()
+                } else {
+                    ZStack {
+                        Color.sageGreen.opacity(0.1)
+                        Image(systemName: "fork.knife")
+                            .font(.largeTitle)
+                            .foregroundColor(.sageGreen)
+                    }
                     .frame(height: 160)
-                    .clipped()
-            } else {
-                ZStack {
-                    Color.sageGreen.opacity(0.1)
-                    Image(systemName: "fork.knife")
-                        .font(.largeTitle)
-                        .foregroundColor(.sageGreen)
                 }
-                .frame(height: 160)
+                
+                // Rating badge overlay with glass effect
+                if let rating = recipe.aggregateRating?.ratingValue {
+                    HStack(spacing: 2) {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundColor(.yellow)
+                        Text(String(format: "%.1f", rating))
+                            .font(.caption2.bold())
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .padding(8)
+                }
             }
             
             VStack(alignment: .leading, spacing: 6) {
@@ -134,19 +214,37 @@ struct RecipeCardView: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 
-                HStack {
-                    Label(String(recipe.servings ?? 0), systemImage: "person.2")
+                HStack(spacing: 8) {
+                    // Servings
+                    if let servings = recipe.servings, servings > 0 {
+                        Label(String(servings), systemImage: "person.2")
+                    }
+                    
+                    // Total time
+                    if let time = recipe.totalTime?.displayString {
+                        Label(time, systemImage: "clock")
+                    }
+                    
                     Spacer()
-                    Image(systemName: "clock") // Placeholder
+                    
+                    // Cuisine badge with glass
+                    if let cuisine = recipe.recipeCuisine {
+                        Text(cuisine)
+                            .font(.system(size: 10, weight: .medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.thinMaterial)
+                            .foregroundColor(.sageGreen)
+                            .clipShape(Capsule())
+                    }
                 }
                 .font(.sansCaption())
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
             }
             .padding(12)
-            .background(Color.cardBackground)
         }
-        .background(Color.cardBackground)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .shadowColor, radius: 12, x: 0, y: 6)
     }
 }

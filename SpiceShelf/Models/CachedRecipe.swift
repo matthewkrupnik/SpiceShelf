@@ -3,6 +3,67 @@ import SwiftData
 import CloudKit
 
 @Model
+final class CachedHowToStep {
+    var id: UUID = UUID()
+    var name: String?
+    var text: String = ""
+    var url: String?
+    var image: String?
+    var sortOrder: Int = 0
+    
+    // Inverse relationship
+    var recipe: CachedRecipe?
+    var section: CachedHowToSection?
+    
+    init(id: UUID = UUID(), name: String? = nil, text: String = "", url: String? = nil, image: String? = nil, sortOrder: Int = 0) {
+        self.id = id
+        self.name = name
+        self.text = text
+        self.url = url
+        self.image = image
+        self.sortOrder = sortOrder
+    }
+    
+    convenience init(from step: HowToStep, sortOrder: Int = 0) {
+        self.init(id: step.id, name: step.name, text: step.text, url: step.url, image: step.image, sortOrder: sortOrder)
+    }
+    
+    func toHowToStep() -> HowToStep {
+        HowToStep(id: id, name: name, text: text, url: url, image: image)
+    }
+}
+
+@Model
+final class CachedHowToSection {
+    var id: UUID = UUID()
+    var name: String = ""
+    var sortOrder: Int = 0
+    
+    @Relationship(deleteRule: .cascade, inverse: \CachedHowToStep.section)
+    var steps: [CachedHowToStep]? = []
+    
+    // Inverse relationship
+    var recipe: CachedRecipe?
+    
+    init(id: UUID = UUID(), name: String = "", sortOrder: Int = 0, steps: [CachedHowToStep] = []) {
+        self.id = id
+        self.name = name
+        self.sortOrder = sortOrder
+        self.steps = steps
+    }
+    
+    convenience init(from section: HowToSection, sortOrder: Int = 0) {
+        let cachedSteps = section.steps.enumerated().map { CachedHowToStep(from: $0.element, sortOrder: $0.offset) }
+        self.init(id: section.id, name: section.name, sortOrder: sortOrder, steps: cachedSteps)
+    }
+    
+    func toHowToSection() -> HowToSection {
+        let sortedSteps = (steps ?? []).sorted { $0.sortOrder < $1.sortOrder }
+        return HowToSection(id: id, name: name, steps: sortedSteps.map { $0.toHowToStep() })
+    }
+}
+
+@Model
 final class CachedIngredient {
     var id: UUID = UUID()
     var name: String = ""
@@ -39,14 +100,20 @@ final class CachedRecipe {
     var recipeDescription: String?
     var authorName: String?
     var authorURL: String?
-    var imageURL: String?
+    var images: [String]?
     var datePublished: Date?
     var keywords: [String]?
     
     // Recipe content
     @Relationship(deleteRule: .cascade, inverse: \CachedIngredient.recipe)
     var ingredients: [CachedIngredient]? = []
-    var instructions: [String] = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \CachedHowToStep.recipe)
+    var instructionSteps: [CachedHowToStep]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \CachedHowToSection.recipe)
+    var instructionSections: [CachedHowToSection]? = []
+    
     var recipeYield: String?
     var servings: Int?
     
@@ -67,6 +134,9 @@ final class CachedRecipe {
     // Rating
     var ratingValue: Double?
     var ratingCount: Int?
+    
+    // Video (stored as JSON for flexibility)
+    var videoJSON: String?
     
     // Source
     var sourceURL: String?
@@ -91,11 +161,12 @@ final class CachedRecipe {
         recipeDescription: String? = nil,
         authorName: String? = nil,
         authorURL: String? = nil,
-        imageURL: String? = nil,
+        images: [String]? = nil,
         datePublished: Date? = nil,
         keywords: [String]? = nil,
         ingredients: [CachedIngredient] = [],
-        instructions: [String] = [],
+        instructionSteps: [CachedHowToStep] = [],
+        instructionSections: [CachedHowToSection] = [],
         recipeYield: String? = nil,
         servings: Int? = nil,
         recipeCategory: String? = nil,
@@ -108,6 +179,7 @@ final class CachedRecipe {
         nutritionJSON: String? = nil,
         ratingValue: Double? = nil,
         ratingCount: Int? = nil,
+        videoJSON: String? = nil,
         sourceURL: String? = nil,
         imageData: Data? = nil,
         lastModified: Date = Date(),
@@ -119,11 +191,12 @@ final class CachedRecipe {
         self.recipeDescription = recipeDescription
         self.authorName = authorName
         self.authorURL = authorURL
-        self.imageURL = imageURL
+        self.images = images
         self.datePublished = datePublished
         self.keywords = keywords
         self.ingredients = ingredients
-        self.instructions = instructions
+        self.instructionSteps = instructionSteps
+        self.instructionSections = instructionSections
         self.recipeYield = recipeYield
         self.servings = servings
         self.recipeCategory = recipeCategory
@@ -136,6 +209,7 @@ final class CachedRecipe {
         self.nutritionJSON = nutritionJSON
         self.ratingValue = ratingValue
         self.ratingCount = ratingCount
+        self.videoJSON = videoJSON
         self.sourceURL = sourceURL
         self.imageData = imageData
         self.lastModified = lastModified
@@ -152,11 +226,16 @@ final class CachedRecipe {
         }
         
         // Encode nutrition as JSON
-        var nutritionJSON: String? = nil
-        if let nutrition = recipe.nutrition,
-           let data = try? JSONEncoder().encode(nutrition) {
-            nutritionJSON = String(data: data, encoding: .utf8)
-        }
+        let nutritionJSON = RecipeJSONHelper.encodeNutrition(recipe.nutrition)
+        
+        // Encode video as JSON
+        let videoJSON = RecipeJSONHelper.encodeVideo(recipe.video)
+        
+        // Convert instruction steps
+        let cachedSteps = recipe.instructionSteps.enumerated().map { CachedHowToStep(from: $0.element, sortOrder: $0.offset) }
+        
+        // Convert instruction sections
+        let cachedSections = (recipe.instructionSections ?? []).enumerated().map { CachedHowToSection(from: $0.element, sortOrder: $0.offset) }
         
         self.init(
             id: recipe.id,
@@ -164,11 +243,12 @@ final class CachedRecipe {
             recipeDescription: recipe.recipeDescription,
             authorName: recipe.author?.name,
             authorURL: recipe.author?.url,
-            imageURL: recipe.imageURL,
+            images: recipe.images,
             datePublished: recipe.datePublished,
             keywords: recipe.keywords,
             ingredients: recipe.recipeIngredient.map { CachedIngredient(from: $0) },
-            instructions: recipe.recipeInstructions,
+            instructionSteps: cachedSteps,
+            instructionSections: cachedSections,
             recipeYield: recipe.recipeYield,
             servings: recipe.servings,
             recipeCategory: recipe.recipeCategory,
@@ -181,6 +261,7 @@ final class CachedRecipe {
             nutritionJSON: nutritionJSON,
             ratingValue: recipe.aggregateRating?.ratingValue,
             ratingCount: recipe.aggregateRating?.ratingCount,
+            videoJSON: videoJSON,
             sourceURL: recipe.sourceURL,
             imageData: imageData,
             lastModified: Date(),
@@ -191,11 +272,10 @@ final class CachedRecipe {
     
     func toRecipe() -> Recipe {
         // Decode nutrition from JSON
-        var nutrition: NutritionInfo? = nil
-        if let json = nutritionJSON,
-           let data = json.data(using: .utf8) {
-            nutrition = try? JSONDecoder().decode(NutritionInfo.self, from: data)
-        }
+        let nutrition = RecipeJSONHelper.decodeNutrition(nutritionJSON)
+        
+        // Decode video from JSON
+        let video = RecipeJSONHelper.decodeVideo(videoJSON)
         
         // Build author if present
         var author: RecipeAuthor? = nil
@@ -209,16 +289,25 @@ final class CachedRecipe {
             aggregateRating = AggregateRating(ratingValue: ratingValue, ratingCount: ratingCount)
         }
         
+        // Convert instruction steps
+        let sortedSteps = (instructionSteps ?? []).sorted { $0.sortOrder < $1.sortOrder }
+        let steps = sortedSteps.map { $0.toHowToStep() }
+        
+        // Convert instruction sections
+        let sortedSections = (instructionSections ?? []).sorted { $0.sortOrder < $1.sortOrder }
+        let sections = sortedSections.isEmpty ? nil : sortedSections.map { $0.toHowToSection() }
+        
         return Recipe(
             id: id,
             name: name,
             recipeDescription: recipeDescription,
             author: author,
-            imageURL: imageURL,
+            images: images,
             datePublished: datePublished,
             keywords: keywords,
             recipeIngredient: (ingredients ?? []).map { $0.toIngredient() },
-            recipeInstructions: instructions,
+            instructionSteps: steps,
+            instructionSections: sections,
             recipeYield: recipeYield,
             servings: servings,
             recipeCategory: recipeCategory,
@@ -230,6 +319,7 @@ final class CachedRecipe {
             totalTime: totalTimeMinutes != nil ? RecipeDuration(minutes: totalTimeMinutes!) : nil,
             nutrition: nutrition,
             aggregateRating: aggregateRating,
+            video: video,
             sourceURL: sourceURL,
             imageAsset: nil // CKAsset will be handled by CloudKit service when syncing
         )
@@ -240,10 +330,9 @@ final class CachedRecipe {
         self.recipeDescription = recipe.recipeDescription
         self.authorName = recipe.author?.name
         self.authorURL = recipe.author?.url
-        self.imageURL = recipe.imageURL
+        self.images = recipe.images
         self.datePublished = recipe.datePublished
         self.keywords = recipe.keywords
-        self.instructions = recipe.recipeInstructions
         self.recipeYield = recipe.recipeYield
         self.servings = recipe.servings
         self.recipeCategory = recipe.recipeCategory
@@ -259,12 +348,10 @@ final class CachedRecipe {
         self.lastModified = Date()
         
         // Update nutrition JSON
-        if let nutrition = recipe.nutrition,
-           let data = try? JSONEncoder().encode(nutrition) {
-            self.nutritionJSON = String(data: data, encoding: .utf8)
-        } else {
-            self.nutritionJSON = nil
-        }
+        self.nutritionJSON = RecipeJSONHelper.encodeNutrition(recipe.nutrition)
+        
+        // Update video JSON
+        self.videoJSON = RecipeJSONHelper.encodeVideo(recipe.video)
         
         // Update image data if available
         if let asset = recipe.imageAsset,
@@ -276,5 +363,13 @@ final class CachedRecipe {
         // Update ingredients
         self.ingredients?.removeAll()
         self.ingredients = recipe.recipeIngredient.map { CachedIngredient(from: $0) }
+        
+        // Update instruction steps
+        self.instructionSteps?.removeAll()
+        self.instructionSteps = recipe.instructionSteps.enumerated().map { CachedHowToStep(from: $0.element, sortOrder: $0.offset) }
+        
+        // Update instruction sections
+        self.instructionSections?.removeAll()
+        self.instructionSections = (recipe.instructionSections ?? []).enumerated().map { CachedHowToSection(from: $0.element, sortOrder: $0.offset) }
     }
 }

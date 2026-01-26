@@ -17,10 +17,10 @@ class AddRecipeViewModelTests: XCTestCase {
             Ingredient(id: UUID(), name: "Ingredient 1", quantity: 1, units: "cup"),
             Ingredient(id: UUID(), name: "Ingredient 2", quantity: 2, units: "tbsp")
         ]
-        let instructions = ["Step 1", "Step 2"]
+        let instructionSteps = [HowToStep("Step 1"), HowToStep("Step 2")]
         viewModel.saveRecipe(title: "Test Recipe",
                              ingredients: ingredients,
-                             instructions: instructions)
+                             instructionSteps: instructionSteps)
 
         // Then
         await fulfillment(of: [expectation], timeout: 1.0)

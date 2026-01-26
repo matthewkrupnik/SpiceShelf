@@ -21,6 +21,7 @@ struct ImportRecipeView: View {
                 .accessibilityHint("Imports recipe from the URL entered above")
             }
             .navigationTitle("Import Recipe")
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

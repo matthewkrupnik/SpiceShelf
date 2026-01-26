@@ -14,6 +14,7 @@ class RecipeListViewModel: ObservableObject {
     @Published var error: AlertError? = nil
     @Published var searchText: String = ""
     @Published var isSyncing: Bool = false
+    @Published var recipeToDelete: Recipe? = nil
     
     var filteredRecipes: [Recipe] {
         guard !searchText.isEmpty else { return recipes }
@@ -89,6 +90,21 @@ class RecipeListViewModel: ObservableObject {
         Task {
             await RecipeDataStore.shared.syncWithCloudKit()
             refreshRecipes()
+        }
+    }
+    
+    func deleteRecipe(_ recipe: Recipe) {
+        cloudKitService.deleteRecipe(recipe) { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success:
+                    self?.recipes.removeAll { $0.id == recipe.id }
+                    HapticStyle.success.trigger()
+                case .failure(let error):
+                    self?.error = AlertError(underlyingError: error)
+                    HapticStyle.error.trigger()
+                }
+            }
         }
     }
 }

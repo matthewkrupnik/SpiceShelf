@@ -1,5 +1,6 @@
 import SwiftUI
 import CloudKit
+import AVKit
 
 struct RecipeDetailView: View {
     
@@ -7,6 +8,8 @@ struct RecipeDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isShowingEditView = false
+    @State private var currentImageIndex = 0
+    @State private var completedSteps: Set<UUID> = []
     
     init(recipe: Recipe) {
         _viewModel = StateObject(wrappedValue: RecipeDetailViewModel(recipe: recipe))
@@ -46,20 +49,50 @@ struct RecipeDetailView: View {
                 .frame(height: 300)
 
                 VStack(alignment: .leading, spacing: 24) {
+                    // Meta Info Bar (rating, cuisine, category, time)
+                    RecipeMetaInfoBar(recipe: viewModel.recipe)
+                    
+                    // Description
+                    if let description = viewModel.recipe.recipeDescription, !description.isEmpty {
+                        Text(description)
+                            .font(.sansBody())
+                            .foregroundColor(.charcoal)
+                            .padding(.bottom, 8)
+                    }
+                    
+                    // Author & Source
+                    if viewModel.recipe.author?.name != nil || viewModel.recipe.sourceURL != nil {
+                        RecipeSourceView(recipe: viewModel.recipe)
+                    }
+                    
+                    // Time Info
+                    if viewModel.recipe.prepTime != nil || viewModel.recipe.cookTime != nil || viewModel.recipe.totalTime != nil {
+                        RecipeTimeView(recipe: viewModel.recipe)
+                    }
+                    
+                    // Dietary Info & Keywords
+                    if let diets = viewModel.recipe.suitableForDiet, !diets.isEmpty {
+                        DietaryBadgesView(diets: diets)
+                    }
+                    
+                    if let keywords = viewModel.recipe.keywords, !keywords.isEmpty {
+                        KeywordsView(keywords: keywords)
+                    }
+                    
                     // Controls - only show if servings is known
                     if viewModel.canScale {
                         HStack {
                             Spacer()
-                            HStack {
+                            HStack(spacing: 0) {
                                 Button(action: {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     if let current = viewModel.currentServings, current > 1 {
                                         viewModel.currentServings = current - 1
                                     }
                                 }) {
                                     Image(systemName: "minus")
+                                        .font(.body.weight(.semibold))
                                         .frame(width: 44, height: 44)
-                                        .background(Color.offWhite)
-                                        .clipShape(Circle())
                                 }
                                 .accessibilityLabel("Decrease servings")
                                 .accessibilityHint("Current servings: \(viewModel.currentServings ?? 0)")
@@ -69,21 +102,22 @@ struct RecipeDetailView: View {
                                     .frame(minWidth: 100)
 
                                 Button(action: {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     if let current = viewModel.currentServings {
                                         viewModel.currentServings = current + 1
                                     }
                                 }) {
                                     Image(systemName: "plus")
+                                        .font(.body.weight(.semibold))
                                         .frame(width: 44, height: 44)
-                                        .background(Color.offWhite)
-                                        .clipShape(Circle())
                                 }
                                 .accessibilityLabel("Increase servings")
                                 .accessibilityHint("Current servings: \(viewModel.currentServings ?? 0)")
                             }
-                            .padding(8)
-                            .background(Color.subtleFill)
-                            .cornerRadius(25)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.regularMaterial)
+                            .clipShape(Capsule())
                             Spacer()
                         }
                         .padding(.top)
@@ -106,6 +140,7 @@ struct RecipeDetailView: View {
                                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                                     .foregroundColor(.sageGreen)
                                     .font(.title3)
+                                    .contentTransition(.symbolEffect(.replace))
                                     .accessibilityHidden(true)
 
                                 Text(ingredientText)
@@ -117,6 +152,7 @@ struct RecipeDetailView: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.spring()) {
                                     if isCompleted {
                                         viewModel.completedIngredients.remove(ingredient.id)
@@ -135,30 +171,19 @@ struct RecipeDetailView: View {
                     }
 
                     // Instructions
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Instructions")
-                            .font(.serifHeading())
-                            .foregroundColor(.sageGreen)
-                            .accessibilityAddTraits(.isHeader)
-
-                        ForEach(viewModel.recipe.instructions.indices, id: \.self) { index in
-                            HStack(alignment: .top, spacing: 16) {
-                                Text("\(index + 1)")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(width: 30, height: 30)
-                                    .background(Circle().fill(Color.terracotta))
-                                    .accessibilityHidden(true)
-
-                                Text(viewModel.recipe.instructions[index])
-                                    .font(.sansBody())
-                                    .foregroundColor(.charcoal)
-                                    .lineSpacing(4)
-                            }
-                            .padding(.vertical, 8)
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel("Step \(index + 1): \(viewModel.recipe.instructions[index])")
-                        }
+                    InstructionsView(
+                        recipe: viewModel.recipe,
+                        completedSteps: $completedSteps
+                    )
+                    
+                    // Video
+                    if let video = viewModel.recipe.video {
+                        RecipeVideoView(video: video)
+                    }
+                    
+                    // Nutrition
+                    if let nutrition = viewModel.recipe.nutrition {
+                        NutritionView(nutrition: nutrition)
                     }
                 }
                 .padding()
@@ -170,24 +195,30 @@ struct RecipeDetailView: View {
         .edgesIgnoringSafeArea(.top)
         .background(Color.offWhite)
         .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button("Cancel", systemImage: "chevron.left") {
+                Button("Back", systemImage: "chevron.left") {
                     dismiss()
                 }
+                .glassEffect()
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Draw", systemImage: "pencil") {
+                Button("Edit", systemImage: "pencil") {
                     isShowingEditView = true
                 }
+                .glassEffect()
                 
-                Button("Erase", systemImage: "trash") {
+                Button("Delete", systemImage: "trash") {
                     viewModel.isShowingDeleteConfirmation = true
                 }
+                .glassEffect()
             }
         }
         .sheet(isPresented: $isShowingEditView) {
             EditRecipeView(viewModel: viewModel)
+                .presentationBackground(.regularMaterial)
+                .presentationCornerRadius(24)
         }
         .alert(isPresented: $viewModel.isShowingDeleteConfirmation) {
             Alert(
