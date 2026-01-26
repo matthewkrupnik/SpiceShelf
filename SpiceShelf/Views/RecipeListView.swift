@@ -224,19 +224,6 @@ struct RecipeCardView: View {
                     if let time = recipe.totalTime?.displayString {
                         Label(time, systemImage: "clock")
                     }
-                    
-                    Spacer()
-                    
-                    // Cuisine badge with glass
-                    if let cuisine = recipe.recipeCuisine {
-                        Text(cuisine)
-                            .font(.system(size: 10, weight: .medium))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(.thinMaterial)
-                            .foregroundColor(.sageGreen)
-                            .clipShape(Capsule())
-                    }
                 }
                 .font(.sansCaption())
                 .foregroundColor(.secondaryText)

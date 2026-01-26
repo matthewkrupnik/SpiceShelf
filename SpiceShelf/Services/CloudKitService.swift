@@ -4,14 +4,14 @@ import CloudKit
 class CloudKitService: CloudKitServiceProtocol {
 
     private let container: CKContainer
-    private let publicDB: CKDatabase
+    private let privateDB: CKDatabase
 
     init() {
         print("CloudKitService init")
         // Use explicit container identifier that matches the app's iCloud container entitlement
         // (this must also be present in the app's .entitlements and the developer portal)
         container = CKContainer(identifier: "iCloud.mk.lan.SpiceShelf")
-        publicDB = container.publicCloudDatabase
+        privateDB = container.privateCloudDatabase
     }
 
     func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
@@ -28,7 +28,7 @@ class CloudKitService: CloudKitServiceProtocol {
             record["imageAsset"] = imageAsset
         }
 
-        publicDB.save(record) { (_, error) in
+        privateDB.save(record) { (_, error) in
             DispatchQueue.main.async {
                 if let error = error {
                     // Improved logging for debugging permission errors
@@ -155,12 +155,12 @@ class CloudKitService: CloudKitServiceProtocol {
         }
 
         operation.resultsLimit = CKQueryOperation.maximumResults
-        publicDB.add(operation)
+        privateDB.add(operation)
     }
 
     func updateRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
         let recordID = CKRecord.ID(recordName: recipe.id.uuidString)
-        publicDB.fetch(withRecordID: recordID) { (record, error) in
+        privateDB.fetch(withRecordID: recordID) { (record, error) in
             DispatchQueue.main.async {
                 if let error = error {
                     if let ckError = error as? CKError {
@@ -189,7 +189,7 @@ class CloudKitService: CloudKitServiceProtocol {
                     record["imageAsset"] = imageAsset
                 }
 
-                self.publicDB.save(record) { (_, error) in
+                self.privateDB.save(record) { (_, error) in
                     DispatchQueue.main.async {
                         if let error = error {
                             if let ckError = error as? CKError {
@@ -209,7 +209,7 @@ class CloudKitService: CloudKitServiceProtocol {
 
     func deleteRecipe(_ recipe: Recipe, completion: @escaping (Result<Void, Error>) -> Void) {
         let recordID = CKRecord.ID(recordName: recipe.id.uuidString)
-        publicDB.delete(withRecordID: recordID) { (_, error) in
+        privateDB.delete(withRecordID: recordID) { (_, error) in
             DispatchQueue.main.async {
                 if let error = error {
                     if let ckError = error as? CKError {
