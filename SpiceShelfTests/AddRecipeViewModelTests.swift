@@ -1,11 +1,11 @@
 import XCTest
+import Combine
 @testable import SpiceShelf
 
 @MainActor
 class AddRecipeViewModelTests: XCTestCase {
 
     func testSaveRecipe() async {
-        print("Running testSaveRecipe")
         // Given
         let mockCloudKitService = MockCloudKitService()
         let viewModel = AddRecipeViewModel(cloudKitService: mockCloudKitService)
@@ -31,4 +31,38 @@ class AddRecipeViewModelTests: XCTestCase {
         XCTAssertEqual(mockCloudKitService.recipeSaved?.instructions.count, 2)
     }
 
+    // MARK: - Failure Path Tests
+
+    func testSaveRecipeEmptyTitleSetsValidationError() {
+        let mockCloudKitService = MockCloudKitService()
+        let viewModel = AddRecipeViewModel(cloudKitService: mockCloudKitService)
+
+        viewModel.saveRecipe(title: "  ",
+                             ingredients: [Ingredient(id: UUID(), name: "Flour", quantity: 1, units: "cup")],
+                             instructionSteps: [HowToStep("Mix")])
+
+        XCTAssertNotNil(viewModel.error)
+        XCTAssertFalse(mockCloudKitService.saveRecipeCalled)
+        XCTAssertNil(viewModel.savedRecipe)
+    }
+
+    func testSaveRecipeSetsErrorOnCloudKitFailure() async {
+        let mockCloudKitService = MockCloudKitService()
+        mockCloudKitService.errorToThrow = NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Save failed"])
+        let viewModel = AddRecipeViewModel(cloudKitService: mockCloudKitService)
+
+        let expectation = XCTestExpectation(description: "Save fails with error")
+        let cancellable = viewModel.$error.dropFirst().sink { error in
+            if error != nil { expectation.fulfill() }
+        }
+
+        viewModel.saveRecipe(title: "Test Recipe",
+                             ingredients: [Ingredient(id: UUID(), name: "Flour", quantity: 1, units: "cup")],
+                             instructionSteps: [HowToStep("Mix")])
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel.error)
+        XCTAssertNil(viewModel.savedRecipe)
+        cancellable.cancel()
+    }
 }

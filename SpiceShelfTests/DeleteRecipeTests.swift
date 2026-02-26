@@ -1,10 +1,10 @@
 import XCTest
+import Combine
 @testable import SpiceShelf
 
 @MainActor
 class DeleteRecipeTests: XCTestCase {
     
-    // Keep a strong reference to prevent premature deallocation during async operations
     var viewModel: RecipeDetailViewModel?
 
     override func tearDown() {
@@ -31,5 +31,31 @@ class DeleteRecipeTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 2.0)
 
         XCTAssertTrue(mockCloudKitService.deleteRecipeCalled)
+    }
+
+    // MARK: - Failure Path Tests
+
+    func testDeleteRecipeSetsErrorOnFailure() async {
+        let mockCloudKitService = MockCloudKitService()
+        mockCloudKitService.errorToThrow = NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Delete failed"])
+        let recipe = Recipe(id: UUID(),
+                            title: "Test Recipe",
+                            ingredients: [],
+                            instructions: [],
+                            sourceURL: nil)
+        viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)
+
+        let expectation = XCTestExpectation(description: "Delete fails with error")
+        let cancellable = viewModel!.$error.dropFirst().sink { error in
+            if error != nil { expectation.fulfill() }
+        }
+
+        viewModel?.deleteRecipe()
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel?.error)
+        XCTAssertFalse(viewModel?.isLoading ?? true)
+        XCTAssertFalse(viewModel?.isShowingDeleteConfirmation ?? true)
+        cancellable.cancel()
     }
 }

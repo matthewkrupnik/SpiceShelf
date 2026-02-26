@@ -15,7 +15,7 @@ struct RecipeListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.offWhite.edgesIgnoringSafeArea(.all)
+                Color(.systemBackground).edgesIgnoringSafeArea(.all)
                 
                 switch viewModel.state {
                 case .loading:
@@ -44,8 +44,8 @@ struct RecipeListView: View {
                                             Label("Copy Title", systemImage: "doc.on.doc")
                                         }
                                         
-                                        if let url = recipe.sourceURL {
-                                            ShareLink(item: URL(string: url)!) {
+                                        if let url = recipe.sourceURL, let shareURL = URL(string: url) {
+                                            ShareLink(item: shareURL) {
                                                 Label("Share Source", systemImage: "square.and.arrow.up")
                                             }
                                         }
@@ -63,13 +63,7 @@ struct RecipeListView: View {
                             .padding()
                         }
                         .refreshable {
-                            await withCheckedContinuation { continuation in
-                                viewModel.fetchRecipes()
-                                // Give time for fetch to complete
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                    continuation.resume()
-                                }
-                            }
+                            await viewModel.refreshFromPullToRefresh()
                         }
                     }
                 case .error:
@@ -169,24 +163,9 @@ struct RecipeCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topTrailing) {
-                if let imageAsset = recipe.imageAsset,
-                   let fileURL = imageAsset.fileURL,
-                   let data = try? Data(contentsOf: fileURL),
-                   let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(height: 160)
-                        .clipped()
-                } else {
-                    ZStack {
-                        Color.sageGreen.opacity(0.1)
-                        Image(systemName: "fork.knife")
-                            .font(.largeTitle)
-                            .foregroundColor(.sageGreen)
-                    }
+                CachedAsyncImage(asset: recipe.imageAsset)
                     .frame(height: 160)
-                }
+                    .clipped()
                 
                 // Rating badge overlay with glass effect
                 if let rating = recipe.aggregateRating?.ratingValue {
@@ -200,7 +179,7 @@ struct RecipeCardView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(.ultraThinMaterial)
+                    .glassEffect()
                     .clipShape(Capsule())
                     .padding(8)
                 }
@@ -231,7 +210,7 @@ struct RecipeCardView: View {
             .padding(12)
         }
         .background(.regularMaterial)
+        .glassEffect()
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .shadowColor, radius: 12, x: 0, y: 6)
     }
 }

@@ -1,23 +1,20 @@
 import Foundation
 import CloudKit
 
-class CloudKitService: CloudKitServiceProtocol {
+final class CloudKitService: CloudKitServiceProtocol, @unchecked Sendable {
 
     private let container: CKContainer
     private let privateDB: CKDatabase
 
     init() {
         print("CloudKitService init")
-        // Use explicit container identifier that matches the app's iCloud container entitlement
-        // (this must also be present in the app's .entitlements and the developer portal)
         container = CKContainer(identifier: "iCloud.mk.lan.SpiceShelf")
         privateDB = container.privateCloudDatabase
     }
 
-    func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
+    func saveRecipe(_ recipe: Recipe) async throws -> Recipe {
         let record = CKRecord(recordType: "Recipe", recordID: CKRecord.ID(recordName: recipe.id.uuidString))
         record["title"] = recipe.title
-        // Encode ingredients as JSON Data so it's a CKRecordValue-compatible type
         if let ingredientsData = try? JSONEncoder().encode(recipe.ingredients) {
             record["ingredients"] = ingredientsData
         }
@@ -28,109 +25,53 @@ class CloudKitService: CloudKitServiceProtocol {
             record["imageAsset"] = imageAsset
         }
 
-        privateDB.save(record) { (_, error) in
-            DispatchQueue.main.async {
+        return try await withCheckedThrowingContinuation { continuation in
+            privateDB.save(record) { _, error in
                 if let error = error {
-                    // Improved logging for debugging permission errors
                     if let ckError = error as? CKError {
                         print("CloudKit save error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
                     } else {
                         print("CloudKit save error: \(error.localizedDescription)")
                     }
-                    completion(.failure(error))
+                    continuation.resume(throwing: error)
                 } else {
-                    completion(.success(recipe))
+                    continuation.resume(returning: recipe)
                 }
             }
         }
     }
 
-    func fetchRecipes(completion: @escaping (Result<[Recipe], Error>) -> Void) {
+    func fetchRecipes() async throws -> [Recipe] {
         let query = CKQuery(recordType: "Recipe", predicate: NSPredicate(value: true))
         query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         var fetchedRecords: [CKRecord] = []
         let operation = CKQueryOperation(query: query)
 
-        if #available(iOS 15.0, *) {
-            // Newer API surfaces per-record errors and a single query result.
-            operation.recordMatchedBlock = { (_, result) in
+        return try await withCheckedThrowingContinuation { continuation in
+            operation.recordMatchedBlock = { _, result in
                 switch result {
                 case .success(let record):
                     fetchedRecords.append(record)
                 case .failure(let error):
-                    // Log per-record errors but continue; callers can decide how to handle partial results
                     print("CloudKit record matched error: \(error)")
                 }
             }
 
             operation.queryResultBlock = { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(_):
-                        let recipes = fetchedRecords.compactMap { record -> Recipe? in
-                            guard let title = record["title"] as? String,
-                                  let instructions = record["instructions"] as? [String] else {
-                                return nil
-                            }
-
-                            // Try to decode ingredients stored as Data (JSON). If that fails, support legacy [String] storage.
-                            var ingredients: [Ingredient]
-                            if let ingredientsData = record["ingredients"] as? Data,
-                               let decoded = try? JSONDecoder().decode([Ingredient].self, from: ingredientsData) {
-                                ingredients = decoded
-                            } else if let ingredientNames = record["ingredients"] as? [String] {
-                                // Backwards-compat: convert string names to Ingredient objects with default quantity/units
-                                ingredients = ingredientNames.map { Ingredient(id: UUID(), name: $0, quantity: 0.0, units: "") }
-                            } else {
-                                return nil
-                            }
-
-                            let sourceURL = record["sourceURL"] as? String
-                            let servings = record["servings"] as? Int ?? 4
-                            let imageAsset = record["imageAsset"] as? CKAsset
-
-                            return Recipe(id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
-                                          title: title,
-                                          ingredients: ingredients,
-                                          instructions: instructions,
-                                          sourceURL: sourceURL,
-                                          servings: servings,
-                                          imageAsset: imageAsset)
-                        }
-
-                        completion(.success(recipes))
-                    case .failure(let error):
-                        completion(.failure(error))
-                    }
-                }
-            }
-        } else {
-            // Fallback for older iOS versions
-            operation.recordFetchedBlock = { record in
-                fetchedRecords.append(record)
-            }
-
-            operation.queryCompletionBlock = { (cursor, error) in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        completion(.failure(error))
-                        return
-                    }
-
+                switch result {
+                case .success:
                     let recipes = fetchedRecords.compactMap { record -> Recipe? in
                         guard let title = record["title"] as? String,
                               let instructions = record["instructions"] as? [String] else {
                             return nil
                         }
 
-                        // Try to decode ingredients stored as Data (JSON). If that fails, support legacy [String] storage.
                         var ingredients: [Ingredient]
                         if let ingredientsData = record["ingredients"] as? Data,
                            let decoded = try? JSONDecoder().decode([Ingredient].self, from: ingredientsData) {
                             ingredients = decoded
                         } else if let ingredientNames = record["ingredients"] as? [String] {
-                            // Backwards-compat: convert string names to Ingredient objects with default quantity/units
                             ingredients = ingredientNames.map { Ingredient(id: UUID(), name: $0, quantity: 0.0, units: "") }
                         } else {
                             return nil
@@ -148,37 +89,38 @@ class CloudKitService: CloudKitServiceProtocol {
                                       servings: servings,
                                       imageAsset: imageAsset)
                     }
-
-                    completion(.success(recipes))
+                    continuation.resume(returning: recipes)
+                case .failure(let error):
+                    continuation.resume(throwing: error)
                 }
             }
-        }
 
-        operation.resultsLimit = CKQueryOperation.maximumResults
-        privateDB.add(operation)
+            operation.resultsLimit = CKQueryOperation.maximumResults
+            privateDB.add(operation)
+        }
     }
 
-    func updateRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
+    func updateRecipe(_ recipe: Recipe) async throws -> Recipe {
         let recordID = CKRecord.ID(recordName: recipe.id.uuidString)
-        privateDB.fetch(withRecordID: recordID) { (record, error) in
-            DispatchQueue.main.async {
+
+        return try await withCheckedThrowingContinuation { continuation in
+            privateDB.fetch(withRecordID: recordID) { record, error in
                 if let error = error {
                     if let ckError = error as? CKError {
                         print("CloudKit fetch for update error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
                     } else {
                         print("CloudKit fetch for update error: \(error.localizedDescription)")
                     }
-                    completion(.failure(error))
+                    continuation.resume(throwing: error)
                     return
                 }
 
                 guard let record = record else {
-                    // Handle error: record not found
+                    continuation.resume(throwing: NSError(domain: "CloudKitService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Record not found for recipe \(recipe.id)"]))
                     return
                 }
 
                 record["title"] = recipe.title
-                // Encode ingredients as JSON Data so it's a CKRecordValue-compatible type
                 if let ingredientsData = try? JSONEncoder().encode(recipe.ingredients) {
                     record["ingredients"] = ingredientsData
                 }
@@ -189,37 +131,36 @@ class CloudKitService: CloudKitServiceProtocol {
                     record["imageAsset"] = imageAsset
                 }
 
-                self.privateDB.save(record) { (_, error) in
-                    DispatchQueue.main.async {
-                        if let error = error {
-                            if let ckError = error as? CKError {
-                                print("CloudKit update save error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
-                            } else {
-                                print("CloudKit update save error: \(error.localizedDescription)")
-                            }
-                            completion(.failure(error))
+                self.privateDB.save(record) { _, error in
+                    if let error = error {
+                        if let ckError = error as? CKError {
+                            print("CloudKit update save error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
                         } else {
-                            completion(.success(recipe))
+                            print("CloudKit update save error: \(error.localizedDescription)")
                         }
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: recipe)
                     }
                 }
             }
         }
     }
 
-    func deleteRecipe(_ recipe: Recipe, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteRecipe(_ recipe: Recipe) async throws {
         let recordID = CKRecord.ID(recordName: recipe.id.uuidString)
-        privateDB.delete(withRecordID: recordID) { (_, error) in
-            DispatchQueue.main.async {
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            privateDB.delete(withRecordID: recordID) { _, error in
                 if let error = error {
                     if let ckError = error as? CKError {
                         print("CloudKit delete error: code=\(ckError.code) description=\(ckError.localizedDescription) userInfo=\(ckError.userInfo)")
                     } else {
                         print("CloudKit delete error: \(error.localizedDescription)")
                     }
-                    completion(.failure(error))
+                    continuation.resume(throwing: error)
                 } else {
-                    completion(.success(()))
+                    continuation.resume()
                 }
             }
         }

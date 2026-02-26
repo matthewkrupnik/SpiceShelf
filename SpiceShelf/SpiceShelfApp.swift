@@ -32,8 +32,15 @@ struct SpiceShelfApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RecipeListView()
-                .modelContainer(dataStore.modelContainer)
+            TabView {
+                Tab("Recipes", systemImage: "book") {
+                    RecipeListView()
+                }
+                Tab("Settings", systemImage: "gearshape") {
+                    SettingsView()
+                }
+            }
+            .modelContainer(dataStore.modelContainer)
         }
     }
 }

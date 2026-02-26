@@ -20,96 +20,40 @@ enum RecipeParsingError: Error, LocalizedError {
     }
 }
 
-// MARK: - Site-Specific Parser Protocol
-
-protocol SiteSpecificParser {
-    static var supportedHosts: [String] { get }
-    static func canParse(url: URL) -> Bool
-    func parse(html: String, url: URL) -> Recipe?
-}
-
-extension SiteSpecificParser {
-    static func canParse(url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        return supportedHosts.contains { host.contains($0) }
-    }
-}
-
 // MARK: - Main Parser Service
 
-class RecipeParserService {
+final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendable {
     
     private let session: URLSession
-    private let siteSpecificParsers: [SiteSpecificParser]
     
     init(session: URLSession = .shared) {
         self.session = session
-        self.siteSpecificParsers = [
-            AllRecipesParser(),
-            SeriousEatsParser(),
-            NYTCookingParser(),
-            FoodNetworkParser(),
-            SallysBakingParser(),
-            RecipeTinEatsParser(),
-            BudgetBytesParser(),
-            TheKitchnParser(),
-            SimplyRecipesParser(),
-            EpicuriousParser(),
-            SmittenKitchenParser(),
-            LoveAndLemonsParser(),
-            BBCGoodFoodParser(),
-            DelishParser(),
-            TasteOfHomeParser()
-        ]
     }
 
-    func parseRecipe(from url: URL, completion: @escaping (Result<Recipe, Error>) -> Void) {
+    func parseRecipe(from url: URL) async throws -> Recipe {
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         
-        let task = session.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                DispatchQueue.main.async { completion(.failure(error)) }
-                return
-            }
-
-            guard let data = data, let htmlString = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async { completion(.failure(RecipeParsingError.invalidData)) }
-                return
-            }
-
-            // 1. Try site-specific parser first
-            for parser in self.siteSpecificParsers {
-                if type(of: parser).canParse(url: url) {
-                    if let recipe = parser.parse(html: htmlString, url: url) {
-                        DispatchQueue.main.async { completion(.success(recipe)) }
-                        return
-                    }
-                }
-            }
-
-            // 2. Try generic JSON-LD parsing
-            if let recipe = self.extractJSONLDRecipe(from: htmlString, url: url) {
-                DispatchQueue.main.async { completion(.success(recipe)) }
-                return
-            }
-
-            // 3. Try Microdata parsing
-            if let recipe = self.extractMicrodataRecipe(from: htmlString, url: url) {
-                DispatchQueue.main.async { completion(.success(recipe)) }
-                return
-            }
-
-            // 4. Fallback: Try Meta Tags (OpenGraph)
-            if let recipe = self.extractMetaTagRecipe(from: htmlString, url: url) {
-                DispatchQueue.main.async { completion(.success(recipe)) }
-                return
-            }
-
-            DispatchQueue.main.async { completion(.failure(RecipeParsingError.noRecipeFound)) }
+        let (data, _) = try await session.data(for: request)
+        
+        guard let htmlString = String(data: data, encoding: .utf8) else {
+            throw RecipeParsingError.invalidData
         }
-        task.resume()
+
+        if let recipe = extractJSONLDRecipe(from: htmlString, url: url) {
+            return recipe
+        }
+
+        if let recipe = extractMicrodataRecipe(from: htmlString, url: url) {
+            return recipe
+        }
+
+        if let recipe = extractMetaTagRecipe(from: htmlString, url: url) {
+            return recipe
+        }
+
+        throw RecipeParsingError.noRecipeFound
     }
 
     // MARK: - JSON-LD Parsing
@@ -888,147 +832,5 @@ class RecipeParserService {
         }
         
         return Ingredient(id: UUID(), name: name.isEmpty ? raw : name, quantity: quantity, units: unit)
-    }
-}
-
-// MARK: - Site-Specific Parsers
-
-/// AllRecipes parser - handles their specific JSON-LD format
-struct AllRecipesParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["allrecipes.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        // AllRecipes uses standard JSON-LD but sometimes has multiple recipe objects
-        // The main parser should handle this, so this is just a hook for future customization
-        return nil // Fall through to generic parser
-    }
-}
-
-/// Serious Eats parser
-struct SeriousEatsParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["seriouseats.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// NYT Cooking parser - handles their paywall-friendly structure
-struct NYTCookingParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["cooking.nytimes.com", "nytimes.com/recipe"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        // NYT Cooking uses standard JSON-LD
-        return nil
-    }
-}
-
-/// Food Network parser
-struct FoodNetworkParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["foodnetwork.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Sally's Baking Addiction parser
-struct SallysBakingParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["sallysbakingaddiction.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD via WordPress recipe plugin
-    }
-}
-
-/// RecipeTin Eats parser
-struct RecipeTinEatsParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["recipetineats.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD via WordPress recipe plugin
-    }
-}
-
-/// Budget Bytes parser
-struct BudgetBytesParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["budgetbytes.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// The Kitchn parser
-struct TheKitchnParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["thekitchn.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Simply Recipes parser
-struct SimplyRecipesParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["simplyrecipes.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Epicurious parser
-struct EpicuriousParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["epicurious.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Smitten Kitchen parser
-struct SmittenKitchenParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["smittenkitchen.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        // Smitten Kitchen sometimes has recipes in blog post format without structured data
-        // Try to extract from post content if JSON-LD fails
-        return nil
-    }
-}
-
-/// Love and Lemons parser
-struct LoveAndLemonsParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["loveandlemons.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD via WordPress recipe plugin
-    }
-}
-
-/// BBC Good Food parser
-struct BBCGoodFoodParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["bbcgoodfood.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Delish parser
-struct DelishParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["delish.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
-    }
-}
-
-/// Taste of Home parser
-struct TasteOfHomeParser: SiteSpecificParser {
-    static var supportedHosts: [String] = ["tasteofhome.com"]
-    
-    func parse(html: String, url: URL) -> Recipe? {
-        return nil // Uses standard JSON-LD
     }
 }

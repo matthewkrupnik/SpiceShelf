@@ -15,64 +15,38 @@ class OfflineFirstRecipeService: CloudKitServiceProtocol {
     
     // MARK: - CloudKitServiceProtocol
     
-    func fetchRecipes(completion: @escaping (Result<[Recipe], Error>) -> Void) {
-        // Return local data immediately
+    func fetchRecipes() async throws -> [Recipe] {
         do {
             let localRecipes = try dataStore.fetchAllRecipes()
-            completion(.success(localRecipes))
-            
-            // Then sync in background (don't notify - let the pull-to-refresh handle updates)
             Task {
                 await dataStore.syncWithCloudKit()
             }
+            return localRecipes
         } catch {
-            // If local fetch fails, try CloudKit directly
-            cloudKitService.fetchRecipes(completion: completion)
+            return try await cloudKitService.fetchRecipes()
         }
     }
     
-    func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
-        // Save locally first
-        do {
-            try dataStore.saveRecipeLocally(recipe, needsSync: true)
-            completion(.success(recipe))
-            
-            // Then try to sync to CloudKit in background
-            Task {
-                await dataStore.syncWithCloudKit()
-            }
-        } catch {
-            completion(.failure(error))
+    func saveRecipe(_ recipe: Recipe) async throws -> Recipe {
+        try dataStore.saveRecipeLocally(recipe, needsSync: true)
+        Task {
+            await dataStore.syncWithCloudKit()
         }
+        return recipe
     }
     
-    func updateRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void) {
-        // Update locally first
-        do {
-            try dataStore.saveRecipeLocally(recipe, needsSync: true)
-            completion(.success(recipe))
-            
-            // Then try to sync to CloudKit in background
-            Task {
-                await dataStore.syncWithCloudKit()
-            }
-        } catch {
-            completion(.failure(error))
+    func updateRecipe(_ recipe: Recipe) async throws -> Recipe {
+        try dataStore.saveRecipeLocally(recipe, needsSync: true)
+        Task {
+            await dataStore.syncWithCloudKit()
         }
+        return recipe
     }
     
-    func deleteRecipe(_ recipe: Recipe, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Mark for deletion locally
-        do {
-            try dataStore.deleteRecipeLocally(recipe)
-            completion(.success(()))
-            
-            // Then try to sync deletion to CloudKit in background
-            Task {
-                await dataStore.syncWithCloudKit()
-            }
-        } catch {
-            completion(.failure(error))
+    func deleteRecipe(_ recipe: Recipe) async throws {
+        try dataStore.deleteRecipeLocally(recipe)
+        Task {
+            await dataStore.syncWithCloudKit()
         }
     }
     

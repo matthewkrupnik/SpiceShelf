@@ -1,10 +1,10 @@
 import XCTest
+import Combine
 @testable import SpiceShelf
 
 @MainActor
 class RecipeListViewModelTests: XCTestCase {
     
-    // Keep a strong reference to prevent premature deallocation during async operations
     var viewModel: RecipeListViewModel?
     var mockCloudKitService: MockCloudKitService?
 
@@ -15,29 +15,73 @@ class RecipeListViewModelTests: XCTestCase {
     }
 
     func testFetchRecipes() async {
-        print("Running testFetchRecipes")
         // Given
         mockCloudKitService = MockCloudKitService()
         viewModel = RecipeListViewModel(cloudKitService: mockCloudKitService!)
         let expectation = XCTestExpectation(description: "Fetch recipes")
 
-        // When
         let recipe = Recipe(id: UUID(),
                               title: "Test Recipe",
                               ingredients: [Ingredient(id: UUID(), name: "Ingredient 1", quantity: 1.0, units: "")],
                               instructions: ["Step 1"],
                               sourceURL: nil)
-        mockCloudKitService?.saveRecipe(recipe) { _ in }
-        viewModel?.fetchRecipes()
+        _ = try? await mockCloudKitService?.saveRecipe(recipe)
 
-        // Then
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            print("Recipes count: \(self.viewModel?.recipes.count ?? 0)")
-            XCTAssertFalse(self.viewModel?.recipes.isEmpty ?? true)
-            expectation.fulfill()
+        let cancellable = viewModel!.$state.sink { state in
+            if state == .loaded {
+                XCTAssertFalse(self.viewModel?.recipes.isEmpty ?? true)
+                expectation.fulfill()
+            }
         }
 
+        viewModel?.fetchRecipes()
+
         await fulfillment(of: [expectation], timeout: 2)
+        cancellable.cancel()
     }
 
+    // MARK: - Failure Path Tests
+
+    func testFetchRecipesSetsErrorOnFailure() async {
+        mockCloudKitService = MockCloudKitService()
+        mockCloudKitService!.errorToThrow = NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
+        viewModel = RecipeListViewModel(cloudKitService: mockCloudKitService!)
+
+        let expectation = XCTestExpectation(description: "Fetch fails with error")
+        let cancellable = viewModel!.$state.sink { state in
+            if state == .error { expectation.fulfill() }
+        }
+
+        viewModel?.fetchRecipes()
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel?.error)
+        XCTAssertTrue(viewModel?.recipes.isEmpty ?? false)
+        cancellable.cancel()
+    }
+
+    func testDeleteRecipeSetsErrorOnFailure() async {
+        mockCloudKitService = MockCloudKitService()
+        viewModel = RecipeListViewModel(cloudKitService: mockCloudKitService!)
+
+        let recipe = Recipe(id: UUID(),
+                            title: "Delete Me",
+                            ingredients: [],
+                            instructions: [],
+                            sourceURL: nil)
+        viewModel?.recipes = [recipe]
+        mockCloudKitService!.errorToThrow = NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Delete failed"])
+
+        let expectation = XCTestExpectation(description: "Delete fails with error")
+        let cancellable = viewModel!.$error.dropFirst().sink { error in
+            if error != nil { expectation.fulfill() }
+        }
+
+        viewModel?.deleteRecipe(recipe)
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel?.error)
+        XCTAssertEqual(viewModel?.recipes.count, 1)
+        cancellable.cancel()
+    }
 }

@@ -85,7 +85,6 @@ struct RecipeDetailView: View {
                             Spacer()
                             HStack(spacing: 0) {
                                 Button(action: {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     if let current = viewModel.currentServings, current > 1 {
                                         viewModel.currentServings = current - 1
                                     }
@@ -102,7 +101,6 @@ struct RecipeDetailView: View {
                                     .frame(minWidth: 100)
 
                                 Button(action: {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     if let current = viewModel.currentServings {
                                         viewModel.currentServings = current + 1
                                     }
@@ -118,6 +116,7 @@ struct RecipeDetailView: View {
                             .padding(.vertical, 4)
                             .background(.regularMaterial)
                             .clipShape(Capsule())
+                            .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.5), trigger: viewModel.currentServings)
                             Spacer()
                         }
                         .padding(.top)
@@ -152,7 +151,6 @@ struct RecipeDetailView: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.spring()) {
                                     if isCompleted {
                                         viewModel.completedIngredients.remove(ingredient.id)
@@ -166,6 +164,7 @@ struct RecipeDetailView: View {
                             .accessibilityLabel("\(ingredientText)\(isCompleted ? ", completed" : "")")
                             .accessibilityHint("Double tap to \(isCompleted ? "mark as needed" : "mark as complete")")
                             .accessibilityAddTraits(.isButton)
+                            .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.5), trigger: viewModel.completedIngredients.count)
                             Divider().background(Color.subtleBorder)
                         }
                     }
@@ -193,7 +192,7 @@ struct RecipeDetailView: View {
             }
         }
         .edgesIgnoringSafeArea(.top)
-        .background(Color.offWhite)
+        .background(Color(.systemBackground))
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar {

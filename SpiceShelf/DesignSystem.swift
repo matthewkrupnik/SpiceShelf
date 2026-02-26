@@ -23,11 +23,6 @@ extension Color {
             : UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
     })
     
-    static let offWhite = Color(UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1.0)
-            : UIColor(red: 0.98, green: 0.98, blue: 0.97, alpha: 1.0)
-    })
     
     static let cardBackground = Color(UIColor { traitCollection in
         traitCollection.userInterfaceStyle == .dark
@@ -109,22 +104,32 @@ extension View {
 // MARK: - Haptic Feedback
 
 enum HapticStyle {
-    case light, medium, heavy, success, warning, error
+    case light, success, error
     
     func trigger() {
         switch self {
         case .light:
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        case .medium:
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        case .heavy:
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         case .success:
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case .warning:
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
         case .error:
             UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+}
+
+// MARK: - Time Formatting
+
+extension Int {
+    func formattedAsMinutes() -> String {
+        let hours = self / 60
+        let mins = self % 60
+        if hours > 0 && mins > 0 {
+            return "\(hours) hr \(mins) min"
+        } else if hours > 0 {
+            return "\(hours) hr"
+        } else {
+            return "\(mins) min"
         }
     }
 }

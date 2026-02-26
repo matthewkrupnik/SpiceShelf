@@ -77,7 +77,7 @@ struct AddRecipeView: View {
                         HStack {
                             Text("Total Time")
                             Spacer()
-                            Text(formatMinutes(prep + cook))
+                            Text((prep + cook).formattedAsMinutes())
                                 .foregroundColor(.secondaryText)
                         }
                     }
@@ -224,17 +224,6 @@ struct AddRecipeView: View {
         }
     }
 
-    private func formatMinutes(_ minutes: Int) -> String {
-        let hours = minutes / 60
-        let mins = minutes % 60
-        if hours > 0 && mins > 0 {
-            return "\(hours) hr \(mins) min"
-        } else if hours > 0 {
-            return "\(hours) hr"
-        } else {
-            return "\(mins) min"
-        }
-    }
 }
 
 // MARK: - Helper Views for AddRecipeView

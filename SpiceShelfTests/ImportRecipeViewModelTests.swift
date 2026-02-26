@@ -22,7 +22,6 @@ class ImportRecipeViewModelTests: XCTestCase {
 
         let expectation = self.expectation(description: "Import completes")
 
-        // Observe the state of the view model
         let cancellable = viewModel.$state.sink { state in
             if state == .success {
                 XCTAssertTrue(self.mockRecipeParserService.parseRecipeCalled)
@@ -38,6 +37,67 @@ class ImportRecipeViewModelTests: XCTestCase {
         viewModel.importRecipe()
 
         waitForExpectations(timeout: 5, handler: nil)
+        cancellable.cancel()
+    }
+
+    func testImportRecipePostsNotification() {
+        let url = "https://www.example.com"
+        viewModel.url = url
+        
+        let notificationExpectation = XCTNSNotificationExpectation(name: .recipeSaved)
+        
+        viewModel.importRecipe()
+        
+        wait(for: [notificationExpectation], timeout: 2.0)
+    }
+
+    // MARK: - Failure Path Tests
+
+    func testImportRecipeBadURLSetsError() {
+        viewModel.url = "not a valid url %%%"
+
+        viewModel.importRecipe()
+
+        XCTAssertNotNil(viewModel.error)
+        XCTAssertEqual(viewModel.state, .error)
+        XCTAssertFalse(mockRecipeParserService.parseRecipeCalled)
+    }
+
+    func testImportRecipeParserFailureSetsError() async {
+        mockRecipeParserService.errorToThrow = NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parse failed"])
+        viewModel.url = "https://www.example.com"
+
+        let expectation = XCTestExpectation(description: "Import fails with parser error")
+        let cancellable = viewModel.$state.dropFirst().sink { state in
+            if state == .error { expectation.fulfill() }
+        }
+
+        viewModel.importRecipe()
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel.error)
+        XCTAssertEqual(viewModel.state, .error)
+        XCTAssertTrue(mockRecipeParserService.parseRecipeCalled)
+        XCTAssertFalse(mockCloudKitService.saveRecipeCalled)
+        cancellable.cancel()
+    }
+
+    func testImportRecipeCloudKitFailureSetsError() async {
+        mockCloudKitService.errorToThrow = NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Save failed"])
+        viewModel.url = "https://www.example.com"
+
+        let expectation = XCTestExpectation(description: "Import fails with CloudKit error")
+        let cancellable = viewModel.$state.dropFirst().sink { state in
+            if state == .error { expectation.fulfill() }
+        }
+
+        viewModel.importRecipe()
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel.error)
+        XCTAssertEqual(viewModel.state, .error)
+        XCTAssertTrue(mockRecipeParserService.parseRecipeCalled)
+        XCTAssertTrue(mockCloudKitService.saveRecipeCalled)
         cancellable.cancel()
     }
 }

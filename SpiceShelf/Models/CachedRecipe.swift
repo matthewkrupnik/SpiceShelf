@@ -2,6 +2,12 @@ import Foundation
 import SwiftData
 import CloudKit
 
+enum SyncStatus: String {
+    case synced
+    case pendingUpload
+    case pendingDelete
+}
+
 @Model
 final class CachedHowToStep {
     var id: UUID = UUID()
@@ -147,7 +153,7 @@ final class CachedRecipe {
     // Sync tracking
     var lastModified: Date = Date()
     var needsSync: Bool = false
-    var syncStatus: String = "synced" // "synced", "pendingUpload", "pendingDelete"
+    var syncStatus: String = SyncStatus.synced.rawValue
     
     // Backward compatibility alias
     var title: String {
@@ -184,7 +190,7 @@ final class CachedRecipe {
         imageData: Data? = nil,
         lastModified: Date = Date(),
         needsSync: Bool = false,
-        syncStatus: String = "synced"
+        syncStatus: String = SyncStatus.synced.rawValue
     ) {
         self.id = id
         self.name = name
@@ -266,7 +272,7 @@ final class CachedRecipe {
             imageData: imageData,
             lastModified: Date(),
             needsSync: false,
-            syncStatus: "synced"
+            syncStatus: SyncStatus.synced.rawValue
         )
     }
     

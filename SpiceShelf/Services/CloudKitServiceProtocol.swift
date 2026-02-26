@@ -1,8 +1,8 @@
 import Foundation
 
-protocol CloudKitServiceProtocol {
-    func saveRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void)
-    func fetchRecipes(completion: @escaping (Result<[Recipe], Error>) -> Void)
-    func updateRecipe(_ recipe: Recipe, completion: @escaping (Result<Recipe, Error>) -> Void)
-    func deleteRecipe(_ recipe: Recipe, completion: @escaping (Result<Void, Error>) -> Void)
+protocol CloudKitServiceProtocol: Sendable {
+    func saveRecipe(_ recipe: Recipe) async throws -> Recipe
+    func fetchRecipes() async throws -> [Recipe]
+    func updateRecipe(_ recipe: Recipe) async throws -> Recipe
+    func deleteRecipe(_ recipe: Recipe) async throws
 }

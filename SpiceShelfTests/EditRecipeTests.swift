@@ -1,10 +1,10 @@
 import XCTest
+import Combine
 @testable import SpiceShelf
 
 @MainActor
 class EditRecipeTests: XCTestCase {
     
-    // Keep a strong reference to prevent premature deallocation during async operations
     var viewModel: RecipeDetailViewModel?
 
     override func tearDown() {
@@ -29,10 +29,34 @@ class EditRecipeTests: XCTestCase {
         viewModel?.saveChanges()
 
         // Then
-        // Allow more time for async scheduling on busy machines
         await fulfillment(of: [expectation], timeout: 5.0)
 
         XCTAssertTrue(mockCloudKitService.updateRecipeCalled)
         XCTAssertEqual(mockCloudKitService.recipeSaved?.title, "Updated Title")
+    }
+
+    // MARK: - Failure Path Tests
+
+    func testSaveChangesSetsErrorOnFailure() async {
+        let mockCloudKitService = MockCloudKitService()
+        mockCloudKitService.errorToThrow = NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Update failed"])
+        let recipe = Recipe(id: UUID(),
+                            title: "Test",
+                            ingredients: [],
+                            instructions: [],
+                            sourceURL: nil)
+        viewModel = RecipeDetailViewModel(recipe: recipe, cloudKitService: mockCloudKitService)
+
+        let expectation = XCTestExpectation(description: "Save changes fails with error")
+        let cancellable = viewModel!.$error.dropFirst().sink { error in
+            if error != nil { expectation.fulfill() }
+        }
+
+        viewModel?.saveChanges()
+
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNotNil(viewModel?.error)
+        XCTAssertFalse(viewModel?.isLoading ?? true)
+        cancellable.cancel()
     }
 }

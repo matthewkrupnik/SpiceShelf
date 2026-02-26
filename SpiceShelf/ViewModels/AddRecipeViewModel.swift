@@ -20,11 +20,9 @@ import Combine
 class AddRecipeViewModel: ObservableObject {
     private let cloudKitService: CloudKitServiceProtocol
 
-    // Published property so views can react when a recipe is saved
     @Published var savedRecipe: Recipe? = nil
     @Published var error: AlertError? = nil
 
-    // Allow injecting a service (tests). If nil, use the ServiceLocator to pick the current service.
     init(cloudKitService: CloudKitServiceProtocol? = nil) {
         self.cloudKitService = cloudKitService ?? ServiceLocator.currentCloudKitService()
     }
@@ -107,18 +105,13 @@ class AddRecipeViewModel: ObservableObject {
             imageAsset: imageAsset
         )
 
-        cloudKitService.saveRecipe(recipe) { (result: Result<Recipe, Error>) in
-            switch result {
-            case .success(let recipe):
-                DispatchQueue.main.async {
-                    self.savedRecipe = recipe
-                    // Notify other parts of the app so they can refresh after a save
-                    NotificationCenter.default.post(name: .recipeSaved, object: recipe)
-                }
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    self.error = AlertError(underlyingError: error)
-                }
+        Task {
+            do {
+                let savedRecipe = try await cloudKitService.saveRecipe(recipe)
+                self.savedRecipe = savedRecipe
+                NotificationCenter.default.post(name: .recipeSaved, object: savedRecipe)
+            } catch {
+                self.error = AlertError(underlyingError: error)
             }
         }
     }

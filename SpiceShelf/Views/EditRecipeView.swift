@@ -68,7 +68,7 @@ struct EditRecipeView: View {
                         HStack {
                             Text("Total Time")
                             Spacer()
-                            Text(formatMinutes(prep + cook))
+                            Text((prep + cook).formattedAsMinutes())
                                 .foregroundColor(.secondaryText)
                         }
                     }
@@ -182,11 +182,12 @@ struct EditRecipeView: View {
                                     .foregroundColor(.secondaryText)
                             }
                         }
-                        if let sourceURL = viewModel.recipe.sourceURL {
+                        if let sourceURL = viewModel.recipe.sourceURL,
+                           let linkURL = URL(string: sourceURL) {
                             HStack {
                                 Text("Source")
                                 Spacer()
-                                Link(URL(string: sourceURL)?.host ?? "View", destination: URL(string: sourceURL)!)
+                                Link(linkURL.host ?? "View", destination: linkURL)
                                     .foregroundColor(.sageGreen)
                             }
                         }
@@ -234,18 +235,6 @@ struct EditRecipeView: View {
         let cook = viewModel.recipe.cookTime?.totalMinutes ?? 0
         if prep > 0 || cook > 0 {
             viewModel.recipe.totalTime = RecipeDuration(minutes: prep + cook)
-        }
-    }
-    
-    private func formatMinutes(_ minutes: Int) -> String {
-        let hours = minutes / 60
-        let mins = minutes % 60
-        if hours > 0 && mins > 0 {
-            return "\(hours) hr \(mins) min"
-        } else if hours > 0 {
-            return "\(hours) hr"
-        } else {
-            return "\(mins) min"
         }
     }
 }

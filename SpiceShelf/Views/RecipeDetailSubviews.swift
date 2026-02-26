@@ -1,6 +1,18 @@
 import SwiftUI
 import AVKit
 
+// MARK: - Shared Helpers
+
+private func toggleStep(_ id: UUID, in steps: Binding<Set<UUID>>) {
+    withAnimation(.spring()) {
+        if steps.wrappedValue.contains(id) {
+            steps.wrappedValue.remove(id)
+        } else {
+            steps.wrappedValue.insert(id)
+        }
+    }
+}
+
 // MARK: - Meta Info Bar (Rating, Cuisine, Category, Time)
 
 struct RecipeMetaInfoBar: View {
@@ -269,19 +281,9 @@ struct InstructionsView: View {
                 // Flat list of steps
                 ForEach(Array(recipe.instructionSteps.enumerated()), id: \.element.id) { index, step in
                     StepView(step: step, index: index + 1, isCompleted: completedSteps.contains(step.id)) {
-                        toggleStep(step.id)
+                        toggleStep(step.id, in: $completedSteps)
                     }
                 }
-            }
-        }
-    }
-    
-    private func toggleStep(_ id: UUID) {
-        withAnimation(.spring()) {
-            if completedSteps.contains(id) {
-                completedSteps.remove(id)
-            } else {
-                completedSteps.insert(id)
             }
         }
     }
@@ -300,18 +302,8 @@ struct SectionView: View {
             
             ForEach(Array(section.steps.enumerated()), id: \.element.id) { index, step in
                 StepView(step: step, index: index + 1, isCompleted: completedSteps.contains(step.id)) {
-                    toggleStep(step.id)
+                    toggleStep(step.id, in: $completedSteps)
                 }
-            }
-        }
-    }
-    
-    private func toggleStep(_ id: UUID) {
-        withAnimation(.spring()) {
-            if completedSteps.contains(id) {
-                completedSteps.remove(id)
-            } else {
-                completedSteps.insert(id)
             }
         }
     }

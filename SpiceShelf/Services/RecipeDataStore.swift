@@ -78,9 +78,9 @@ final class RecipeDataStore: ObservableObject {
         let fileManager = FileManager.default
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
         
-        let storeURL = appSupport.appendingPathComponent("default.store")
-        let shmURL = appSupport.appendingPathComponent("default.store-shm")
-        let walURL = appSupport.appendingPathComponent("default.store-wal")
+        let storeURL = appSupport.appendingPathComponent("LocalRecipeStore.store")
+        let shmURL = appSupport.appendingPathComponent("LocalRecipeStore.store-shm")
+        let walURL = appSupport.appendingPathComponent("LocalRecipeStore.store-wal")
         
         for url in [storeURL, shmURL, walURL] {
             try? fileManager.removeItem(at: url)
@@ -128,7 +128,9 @@ final class RecipeDataStore: ObservableObject {
     // MARK: - Local Operations
     
     func fetchAllRecipes() throws -> [Recipe] {
+        let pendingDelete = SyncStatus.pendingDelete.rawValue
         let descriptor = FetchDescriptor<CachedRecipe>(
+            predicate: #Predicate { $0.syncStatus != pendingDelete },
             sortBy: [SortDescriptor(\.lastModified, order: .reverse)]
         )
         let cachedRecipes = try modelContext.fetch(descriptor)
@@ -146,11 +148,11 @@ final class RecipeDataStore: ObservableObject {
         if let existing = try fetchCachedRecipe(byId: recipe.id) {
             existing.update(from: recipe)
             existing.needsSync = needsSync
-            existing.syncStatus = needsSync ? "pendingUpload" : "synced"
+            existing.syncStatus = needsSync ? SyncStatus.pendingUpload.rawValue : SyncStatus.synced.rawValue
         } else {
             let cached = CachedRecipe(from: recipe)
             cached.needsSync = needsSync
-            cached.syncStatus = needsSync ? "pendingUpload" : "synced"
+            cached.syncStatus = needsSync ? SyncStatus.pendingUpload.rawValue : SyncStatus.synced.rawValue
             modelContext.insert(cached)
         }
         try modelContext.save()
@@ -160,7 +162,7 @@ final class RecipeDataStore: ObservableObject {
         if let cached = try fetchCachedRecipe(byId: recipe.id) {
             // Mark for deletion sync instead of immediate delete
             cached.needsSync = true
-            cached.syncStatus = "pendingDelete"
+            cached.syncStatus = SyncStatus.pendingDelete.rawValue
             try modelContext.save()
         }
     }
@@ -199,88 +201,59 @@ final class RecipeDataStore: ObservableObject {
     private func pushPendingChanges() async throws {
         // Get recipes pending upload
         let uploadDescriptor = FetchDescriptor<CachedRecipe>(
-            predicate: #Predicate { $0.syncStatus == "pendingUpload" }
+            predicate: {
+                let status = SyncStatus.pendingUpload.rawValue
+                return #Predicate { $0.syncStatus == status }
+            }()
         )
         let toUpload = try modelContext.fetch(uploadDescriptor)
         
         for cached in toUpload {
             let recipe = cached.toRecipe()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                cloudKitService.saveRecipe(recipe) { result in
-                    switch result {
-                    case .success:
-                        Task { @MainActor in
-                            cached.needsSync = false
-                            cached.syncStatus = "synced"
-                            try? self.modelContext.save()
-                        }
-                        continuation.resume()
-                    case .failure(let error):
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
+            _ = try await cloudKitService.saveRecipe(recipe)
+            cached.needsSync = false
+            cached.syncStatus = SyncStatus.synced.rawValue
+            try? modelContext.save()
         }
         
         // Get recipes pending delete
         let deleteDescriptor = FetchDescriptor<CachedRecipe>(
-            predicate: #Predicate { $0.syncStatus == "pendingDelete" }
+            predicate: {
+                let status = SyncStatus.pendingDelete.rawValue
+                return #Predicate { $0.syncStatus == status }
+            }()
         )
         let toDelete = try modelContext.fetch(deleteDescriptor)
         
         for cached in toDelete {
             let recipe = cached.toRecipe()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                cloudKitService.deleteRecipe(recipe) { result in
-                    switch result {
-                    case .success:
-                        Task { @MainActor in
-                            self.modelContext.delete(cached)
-                            try? self.modelContext.save()
-                        }
-                        continuation.resume()
-                    case .failure(let error):
-                        // If delete fails because record doesn't exist, still remove locally
-                        if let ckError = error as? CKError, ckError.code == .unknownItem {
-                            Task { @MainActor in
-                                self.modelContext.delete(cached)
-                                try? self.modelContext.save()
-                            }
-                            continuation.resume()
-                        } else {
-                            continuation.resume(throwing: error)
-                        }
-                    }
-                }
+            do {
+                try await cloudKitService.deleteRecipe(recipe)
+                modelContext.delete(cached)
+                try? modelContext.save()
+            } catch let error as CKError where error.code == .unknownItem {
+                modelContext.delete(cached)
+                try? modelContext.save()
             }
         }
     }
     
     private func pullFromCloudKit() async throws {
-        let recipes: [Recipe] = try await withCheckedThrowingContinuation { continuation in
-            cloudKitService.fetchRecipes { result in
-                switch result {
-                case .success(let recipes):
-                    continuation.resume(returning: recipes)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+        let recipes = try await cloudKitService.fetchRecipes()
         
         // Merge remote recipes into local cache
         for recipe in recipes {
             if let existing = try fetchCachedRecipe(byId: recipe.id) {
                 // Only update if local isn't pending upload (local changes take precedence)
-                if existing.syncStatus == "synced" {
+                if existing.syncStatus == SyncStatus.synced.rawValue {
                     existing.update(from: recipe)
                     existing.needsSync = false
-                    existing.syncStatus = "synced"
+                    existing.syncStatus = SyncStatus.synced.rawValue
                 }
             } else {
                 let cached = CachedRecipe(from: recipe)
                 cached.needsSync = false
-                cached.syncStatus = "synced"
+                cached.syncStatus = SyncStatus.synced.rawValue
                 modelContext.insert(cached)
             }
         }
@@ -300,7 +273,7 @@ final class RecipeDataStore: ObservableObject {
         cached.imageData = data
         cached.lastModified = Date()
         cached.needsSync = true
-        cached.syncStatus = "pendingUpload"
+        cached.syncStatus = SyncStatus.pendingUpload.rawValue
         try modelContext.save()
     }
 }

@@ -357,6 +357,61 @@ struct Recipe: Identifiable, Hashable, Codable {
         case nutrition, aggregateRating, video, sourceURL
     }
     
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        recipeDescription = try container.decodeIfPresent(String.self, forKey: .recipeDescription)
+        author = try container.decodeIfPresent(RecipeAuthor.self, forKey: .author)
+        images = try container.decodeIfPresent([String].self, forKey: .images)
+        datePublished = try container.decodeIfPresent(Date.self, forKey: .datePublished)
+        keywords = try container.decodeIfPresent([String].self, forKey: .keywords)
+        recipeIngredient = try container.decode([Ingredient].self, forKey: .recipeIngredient)
+        instructionSteps = try container.decode([HowToStep].self, forKey: .instructionSteps)
+        instructionSections = try container.decodeIfPresent([HowToSection].self, forKey: .instructionSections)
+        recipeYield = try container.decodeIfPresent(String.self, forKey: .recipeYield)
+        servings = try container.decodeIfPresent(Int.self, forKey: .servings)
+        recipeCategory = try container.decodeIfPresent(String.self, forKey: .recipeCategory)
+        recipeCuisine = try container.decodeIfPresent(String.self, forKey: .recipeCuisine)
+        cookingMethod = try container.decodeIfPresent(String.self, forKey: .cookingMethod)
+        suitableForDiet = try container.decodeIfPresent([String].self, forKey: .suitableForDiet)
+        prepTime = try container.decodeIfPresent(RecipeDuration.self, forKey: .prepTime)
+        cookTime = try container.decodeIfPresent(RecipeDuration.self, forKey: .cookTime)
+        totalTime = try container.decodeIfPresent(RecipeDuration.self, forKey: .totalTime)
+        nutrition = try container.decodeIfPresent(NutritionInfo.self, forKey: .nutrition)
+        aggregateRating = try container.decodeIfPresent(AggregateRating.self, forKey: .aggregateRating)
+        video = try container.decodeIfPresent(RecipeVideo.self, forKey: .video)
+        sourceURL = try container.decodeIfPresent(String.self, forKey: .sourceURL)
+        imageAsset = nil
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(recipeDescription, forKey: .recipeDescription)
+        try container.encodeIfPresent(author, forKey: .author)
+        try container.encodeIfPresent(images, forKey: .images)
+        try container.encodeIfPresent(datePublished, forKey: .datePublished)
+        try container.encodeIfPresent(keywords, forKey: .keywords)
+        try container.encode(recipeIngredient, forKey: .recipeIngredient)
+        try container.encode(instructionSteps, forKey: .instructionSteps)
+        try container.encodeIfPresent(instructionSections, forKey: .instructionSections)
+        try container.encodeIfPresent(recipeYield, forKey: .recipeYield)
+        try container.encodeIfPresent(servings, forKey: .servings)
+        try container.encodeIfPresent(recipeCategory, forKey: .recipeCategory)
+        try container.encodeIfPresent(recipeCuisine, forKey: .recipeCuisine)
+        try container.encodeIfPresent(cookingMethod, forKey: .cookingMethod)
+        try container.encodeIfPresent(suitableForDiet, forKey: .suitableForDiet)
+        try container.encodeIfPresent(prepTime, forKey: .prepTime)
+        try container.encodeIfPresent(cookTime, forKey: .cookTime)
+        try container.encodeIfPresent(totalTime, forKey: .totalTime)
+        try container.encodeIfPresent(nutrition, forKey: .nutrition)
+        try container.encodeIfPresent(aggregateRating, forKey: .aggregateRating)
+        try container.encodeIfPresent(video, forKey: .video)
+        try container.encodeIfPresent(sourceURL, forKey: .sourceURL)
+    }
+    
     // MARK: - Backward Compatibility
     
     /// Alias for `name` to maintain backward compatibility

@@ -41,6 +41,15 @@ class RecipeListViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
+        NotificationCenter.default.publisher(for: .recipeDeleted)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                if let recipe = notification.object as? Recipe {
+                    self?.recipes.removeAll { $0.id == recipe.id }
+                }
+            }
+            .store(in: &cancellables)
+        
         // Observe sync status from data store
         RecipeDataStore.shared.$isSyncing
             .receive(on: RunLoop.main)
@@ -51,38 +60,37 @@ class RecipeListViewModel: ObservableObject {
         state = .loading
         error = nil
 
-        cloudKitService.fetchRecipes { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let recipes):
-                    self?.recipes = recipes
-                    self?.state = .loaded
-                    self?.isInitialLoad = false
-                case .failure(let error):
-                    self?.error = AlertError(underlyingError: error)
-                    self?.state = .error
-                }
+        Task {
+            do {
+                let recipes = try await cloudKitService.fetchRecipes()
+                self.recipes = recipes
+                self.state = .loaded
+                self.isInitialLoad = false
+            } catch {
+                self.error = AlertError(underlyingError: error)
+                self.state = .error
             }
         }
     }
     
     /// Refresh recipes without showing loading state (for background updates)
     private func refreshRecipes() {
-        cloudKitService.fetchRecipes { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let recipes):
-                    // Only update if data actually changed
-                    if self?.recipes.map(\.id) != recipes.map(\.id) ||
-                       self?.recipes.map(\.title) != recipes.map(\.title) {
-                        self?.recipes = recipes
-                    }
-                    self?.state = .loaded
-                case .failure:
-                    // Silently fail on background refresh - keep existing data
-                    break
-                }
+        Task {
+            await refreshFromPullToRefresh()
+        }
+    }
+    
+    /// Async refresh suitable for .refreshable (awaits completion before returning)
+    func refreshFromPullToRefresh() async {
+        do {
+            let recipes = try await cloudKitService.fetchRecipes()
+            if self.recipes.map(\.id) != recipes.map(\.id) ||
+               self.recipes.map(\.title) != recipes.map(\.title) {
+                self.recipes = recipes
             }
+            self.state = .loaded
+        } catch {
+            // Silently fail on pull-to-refresh - keep existing data
         }
     }
     
@@ -94,16 +102,14 @@ class RecipeListViewModel: ObservableObject {
     }
     
     func deleteRecipe(_ recipe: Recipe) {
-        cloudKitService.deleteRecipe(recipe) { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success:
-                    self?.recipes.removeAll { $0.id == recipe.id }
-                    HapticStyle.success.trigger()
-                case .failure(let error):
-                    self?.error = AlertError(underlyingError: error)
-                    HapticStyle.error.trigger()
-                }
+        Task {
+            do {
+                try await cloudKitService.deleteRecipe(recipe)
+                self.recipes.removeAll { $0.id == recipe.id }
+                HapticStyle.success.trigger()
+            } catch {
+                self.error = AlertError(underlyingError: error)
+                HapticStyle.error.trigger()
             }
         }
     }

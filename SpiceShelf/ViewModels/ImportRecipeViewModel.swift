@@ -15,10 +15,10 @@ class ImportRecipeViewModel: ObservableObject {
     @Published var error: AlertError? = nil
 
     private let cloudKitService: CloudKitServiceProtocol
-    private let recipeParserService: RecipeParserService
+    private let recipeParserService: RecipeParserServiceProtocol
 
     init(
-        recipeParserService: RecipeParserService? = nil,
+        recipeParserService: RecipeParserServiceProtocol? = nil,
         cloudKitService: CloudKitServiceProtocol? = nil
     ) {
         self.recipeParserService = recipeParserService ?? RecipeParserService()
@@ -35,27 +35,15 @@ class ImportRecipeViewModel: ObservableObject {
             return
         }
 
-        recipeParserService.parseRecipe(from: parseURL) { [weak self] result in
-            Task { @MainActor in
-                guard let self = self else { return }
-
-                switch result {
-                case .success(let recipe):
-                    self.cloudKitService.saveRecipe(recipe) { result in
-                        Task { @MainActor in
-                            switch result {
-                            case .success:
-                                self.state = .success
-                            case .failure(let error):
-                                self.error = AlertError(underlyingError: error)
-                                self.state = .error
-                            }
-                        }
-                    }
-                case .failure(let error):
-                    self.error = AlertError(underlyingError: error)
-                    self.state = .error
-                }
+        Task {
+            do {
+                let recipe = try await recipeParserService.parseRecipe(from: parseURL)
+                let savedRecipe = try await cloudKitService.saveRecipe(recipe)
+                self.state = .success
+                NotificationCenter.default.post(name: .recipeSaved, object: savedRecipe)
+            } catch {
+                self.error = AlertError(underlyingError: error)
+                self.state = .error
             }
         }
     }

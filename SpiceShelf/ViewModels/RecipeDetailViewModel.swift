@@ -39,37 +39,34 @@ class RecipeDetailViewModel: ObservableObject {
         isLoading = true
         error = nil
         print("[RecipeDetailViewModel] cloudKitService type = \(type(of: cloudKitService))")
-        cloudKitService.updateRecipe(recipe) { [weak self] result in
-            Task { @MainActor in
-                self?.isLoading = false
-                switch result {
-                case .success(let updatedRecipe):
-                    self?.recipe = updatedRecipe
-                    if updatedRecipe.servings != nil {
-                        self?.currentServings = updatedRecipe.servings
-                    }
-                    NotificationCenter.default.post(name: .recipeSaved, object: updatedRecipe)
-                case .failure(let err):
-                    self?.error = AlertError(underlyingError: err)
+        Task {
+            do {
+                let updatedRecipe = try await cloudKitService.updateRecipe(recipe)
+                self.recipe = updatedRecipe
+                if updatedRecipe.servings != nil {
+                    self.currentServings = updatedRecipe.servings
                 }
+                NotificationCenter.default.post(name: .recipeSaved, object: updatedRecipe)
+            } catch {
+                self.error = AlertError(underlyingError: error)
             }
+            self.isLoading = false
         }
     }
 
     func deleteRecipe(completion: (() -> Void)? = nil) {
         isLoading = true
         error = nil
-        cloudKitService.deleteRecipe(recipe) { [weak self] result in
-            Task { @MainActor in
-                self?.isLoading = false
-                switch result {
-                case .success:
-                    completion?()
-                case .failure(let err):
-                    self?.error = AlertError(underlyingError: err)
-                }
-                self?.isShowingDeleteConfirmation = false
+        Task {
+            do {
+                try await cloudKitService.deleteRecipe(recipe)
+                NotificationCenter.default.post(name: .recipeDeleted, object: recipe)
+                completion?()
+            } catch {
+                self.error = AlertError(underlyingError: error)
             }
+            self.isLoading = false
+            self.isShowingDeleteConfirmation = false
         }
     }
 }
