@@ -11,8 +11,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
                             instructions: ["Mix"],
-                            servings: 4,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 4)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         XCTAssertTrue(vm.canScale)
     }
@@ -32,8 +32,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
                             instructions: ["Mix"],
-                            servings: 0,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 0)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         XCTAssertFalse(vm.canScale)
     }
@@ -48,8 +48,8 @@ class PortionScalingTests: XCTestCase {
                                 Ingredient(name: "Sugar", quantity: 1, units: "cup")
                             ],
                             instructions: ["Mix"],
-                            servings: 4,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 4)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         vm.currentServings = 8
 
@@ -67,8 +67,8 @@ class PortionScalingTests: XCTestCase {
                                 Ingredient(name: "Salt", quantity: 0.5, units: "tsp")
                             ],
                             instructions: ["Mix"],
-                            servings: 4,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 4)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         vm.currentServings = 2
 
@@ -82,8 +82,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
                             instructions: ["Mix"],
-                            servings: 4,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 4)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         vm.currentServings = nil
 
@@ -109,8 +109,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
                             instructions: ["Mix"],
-                            servings: 4,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 4)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         vm.currentServings = 4
 
@@ -123,8 +123,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [Ingredient(name: "Eggs", quantity: 3, units: "")],
                             instructions: ["Beat"],
-                            servings: 2,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 2)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         vm.currentServings = 6
 
@@ -137,8 +137,8 @@ class PortionScalingTests: XCTestCase {
                             title: "Test",
                             ingredients: [],
                             instructions: [],
-                            servings: 6,
-                            sourceURL: nil)
+                            sourceURL: nil,
+                            servings: 6)
         let vm = RecipeDetailViewModel(recipe: recipe, cloudKitService: MockCloudKitService())
         XCTAssertEqual(vm.currentServings, 6)
     }

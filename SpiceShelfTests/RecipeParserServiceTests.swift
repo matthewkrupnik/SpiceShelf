@@ -11,7 +11,7 @@ class RecipeParserServiceTests: XCTestCase {
         super.tearDown()
     }
 
-    func testParseRecipe() throws {
+    func testParseRecipe() async throws {
         // Setup Mock Session
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
@@ -43,23 +43,12 @@ class RecipeParserServiceTests: XCTestCase {
             return (response, html.data(using: .utf8)!)
         }
 
-        let expectation = self.expectation(description: "Parsing completes")
-
-        service?.parseRecipe(from: url) { result in
-            switch result {
-            case .success(let recipe):
-                XCTAssertEqual(recipe.title, "Test Recipe")
-                XCTAssertEqual(recipe.ingredients.count, 2)
-                XCTAssertEqual(recipe.ingredients[0].name, "Sugar") // Naive parser logic: "1 cup Sugar" -> unit "cup", name "Sugar"
-                XCTAssertEqual(recipe.instructions, ["Mix", "Bake"])
-                XCTAssertEqual(recipe.servings, 4)
-                expectation.fulfill()
-            case .failure(let error):
-                XCTFail("Parsing failed with error: \(error)")
-            }
-        }
-
-        waitForExpectations(timeout: 2, handler: nil)
+        let recipe = try await service!.parseRecipe(from: url)
+        XCTAssertEqual(recipe.title, "Test Recipe")
+        XCTAssertEqual(recipe.ingredients.count, 2)
+        XCTAssertEqual(recipe.ingredients[0].name, "Sugar")
+        XCTAssertEqual(recipe.instructions, ["Mix", "Bake"])
+        XCTAssertEqual(recipe.servings, 4)
     }
 }
 

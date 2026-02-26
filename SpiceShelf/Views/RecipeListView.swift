@@ -5,6 +5,7 @@ struct RecipeListView: View {
     @StateObject private var viewModel = RecipeListViewModel()
     @State private var isShowingAddRecipeView = false
     @State private var isShowingImportRecipeView = false
+    @State private var isShowingSettingsView = false
     @Namespace private var heroNamespace
     
     let columns = [
@@ -75,7 +76,7 @@ struct RecipeListView: View {
                     }
                 }
             }
-            .navigationTitle("SpiceShelf")
+            .navigationTitle("Spice Nook")
             .searchable(text: $viewModel.searchText, prompt: "Search recipes")
             .navigationDestination(for: Recipe.self) { recipe in
                 RecipeDetailView(recipe: recipe)
@@ -83,10 +84,16 @@ struct RecipeListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Import Recipe", systemImage: "square.and.arrow.down") {
-                        isShowingImportRecipeView = true
+                    HStack(spacing: 12) {
+                        Button("Import Recipe", systemImage: "square.and.arrow.down") {
+                            isShowingImportRecipeView = true
+                        }
+                        .glassEffect()
+                        Button("Settings", systemImage: "gearshape") {
+                            isShowingSettingsView = true
+                        }
+                        .glassEffect()
                     }
-                    .glassEffect()
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add Recipe", systemImage: "plus") {
@@ -103,6 +110,11 @@ struct RecipeListView: View {
             }
             .sheet(isPresented: $isShowingImportRecipeView) {
                 ImportRecipeView()
+                    .presentationBackground(.regularMaterial)
+                    .presentationCornerRadius(24)
+            }
+            .sheet(isPresented: $isShowingSettingsView) {
+                SettingsView()
                     .presentationBackground(.regularMaterial)
                     .presentationCornerRadius(24)
             }
@@ -164,6 +176,7 @@ struct RecipeCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 CachedAsyncImage(asset: recipe.imageAsset)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 160)
                     .clipped()
                 
@@ -190,16 +203,15 @@ struct RecipeCardView: View {
                     .font(.serifHeading())
                     .foregroundColor(.charcoal)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.5)
                     .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
                 
                 HStack(spacing: 8) {
-                    // Servings
                     if let servings = recipe.servings, servings > 0 {
                         Label(String(servings), systemImage: "person.2")
                     }
                     
-                    // Total time
                     if let time = recipe.totalTime?.displayString {
                         Label(time, systemImage: "clock")
                     }
@@ -208,9 +220,10 @@ struct RecipeCardView: View {
                 .foregroundColor(.secondaryText)
             }
             .padding(12)
+            .frame(height: 80)
         }
         .background(.regularMaterial)
-        .glassEffect()
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glassEffect(in: .rect(cornerRadius: 16, style: .continuous))
     }
 }

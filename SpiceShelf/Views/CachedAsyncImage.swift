@@ -164,14 +164,16 @@ struct CachedAsyncImage: View {
     }
     
     var body: some View {
-        Group {
+        GeometryReader { geo in
             if let image = image {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: contentMode)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
             } else if isLoading {
                 ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: geo.size.width, height: geo.size.height)
                     .background(Color.subtleFill)
             } else {
                 ZStack {
@@ -180,6 +182,7 @@ struct CachedAsyncImage: View {
                         .font(.largeTitle)
                         .foregroundColor(.sageGreen)
                 }
+                .frame(width: geo.size.width, height: geo.size.height)
                 .accessibilityHidden(true)
             }
         }

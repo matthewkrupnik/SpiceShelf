@@ -1,5 +1,7 @@
 import Foundation
+import UIKit
 import Combine
+import CloudKit
 
 @MainActor
 class ImportRecipeViewModel: ObservableObject {
@@ -37,7 +39,10 @@ class ImportRecipeViewModel: ObservableObject {
 
         Task {
             do {
-                let recipe = try await recipeParserService.parseRecipe(from: parseURL)
+                var recipe = try await recipeParserService.parseRecipe(from: parseURL)
+                if let imageAsset = await Self.downloadImageAsset(from: recipe.imageURL) {
+                    recipe.imageAsset = imageAsset
+                }
                 let savedRecipe = try await cloudKitService.saveRecipe(recipe)
                 self.state = .success
                 NotificationCenter.default.post(name: .recipeSaved, object: savedRecipe)
@@ -45,6 +50,28 @@ class ImportRecipeViewModel: ObservableObject {
                 self.error = AlertError(underlyingError: error)
                 self.state = .error
             }
+        }
+    }
+
+    private static func downloadImageAsset(from urlString: String?) async -> CKAsset? {
+        guard let urlString, let imageURL = URL(string: urlString) else { return nil }
+
+        do {
+            var request = URLRequest(url: imageURL)
+            request.setValue(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+                forHTTPHeaderField: "User-Agent"
+            )
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard UIImage(data: data) != nil else { return nil }
+
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("jpg")
+            try data.write(to: tempURL)
+            return CKAsset(fileURL: tempURL)
+        } catch {
+            return nil
         }
     }
 }

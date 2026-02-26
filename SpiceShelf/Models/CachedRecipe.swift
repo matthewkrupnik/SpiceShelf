@@ -327,7 +327,7 @@ final class CachedRecipe {
             aggregateRating: aggregateRating,
             video: video,
             sourceURL: sourceURL,
-            imageAsset: nil // CKAsset will be handled by CloudKit service when syncing
+            imageAsset: Self.assetFromData(imageData, id: id)
         )
     }
     
@@ -377,5 +377,18 @@ final class CachedRecipe {
         // Update instruction sections
         self.instructionSections?.removeAll()
         self.instructionSections = (recipe.instructionSections ?? []).enumerated().map { CachedHowToSection(from: $0.element, sortOrder: $0.offset) }
+    }
+    
+    private static func assetFromData(_ data: Data?, id: UUID) -> CKAsset? {
+        guard let data else { return nil }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(id.uuidString)
+            .appendingPathExtension("jpg")
+        do {
+            try data.write(to: url)
+            return CKAsset(fileURL: url)
+        } catch {
+            return nil
+        }
     }
 }
