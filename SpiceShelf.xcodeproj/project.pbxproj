@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3598C3D8B91EF6B51C57588F /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		69CEA1532EAC5C6200DBBD9B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,9 +25,31 @@
 			remoteGlobalIDString = 69CEA1402EAC5C6000DBBD9B;
 			remoteInfo = SpiceShelf;
 		};
+		B9D44F60420D82D0C8DF827D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 69CEA1392EAC5C6000DBBD9B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE28984597F5A9A90089C08D;
+			remoteInfo = ShareExtension;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		3598C3D8B91EF6B51C57588F /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		69CEA1412EAC5C6000DBBD9B /* SpiceShelf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpiceShelf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69CEA1522EAC5C6200DBBD9B /* SpiceShelfTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpiceShelfTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		69CEA15C2EAC5C6200DBBD9B /* SpiceShelfUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpiceShelfUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -36,6 +62,14 @@
 				Info.plist,
 			);
 			target = 69CEA1402EAC5C6000DBBD9B /* SpiceShelf */;
+		};
+		C33536D3C6ED41957700FFFC /* Exceptions for "ShareExtension" folder in "ShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				ShareExtension.entitlements,
+			);
+			target = BE28984597F5A9A90089C08D /* ShareExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -56,6 +90,14 @@
 		69CEA15F2EAC5C6200DBBD9B /* SpiceShelfUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = SpiceShelfUITests;
+			sourceTree = "<group>";
+		};
+		E0E4F7EE41D4CEAE984CC047 /* ShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C33536D3C6ED41957700FFFC /* Exceptions for "ShareExtension" folder in "ShareExtension" target */,
+			);
+			path = ShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,6 +124,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B83FE0FD2C5956A96E8750AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -89,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				69CEA1432EAC5C6000DBBD9B /* SpiceShelf */,
+				E0E4F7EE41D4CEAE984CC047 /* ShareExtension */,
 				69CEA1552EAC5C6200DBBD9B /* SpiceShelfTests */,
 				69CEA15F2EAC5C6200DBBD9B /* SpiceShelfUITests */,
 				69CEA1422EAC5C6000DBBD9B /* Products */,
@@ -99,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				69CEA1412EAC5C6000DBBD9B /* SpiceShelf.app */,
+				3598C3D8B91EF6B51C57588F /* ShareExtension.appex */,
 				69CEA1522EAC5C6200DBBD9B /* SpiceShelfTests.xctest */,
 				69CEA15C2EAC5C6200DBBD9B /* SpiceShelfUITests.xctest */,
 			);
@@ -115,10 +166,12 @@
 				69CEA13D2EAC5C6000DBBD9B /* Sources */,
 				69CEA13E2EAC5C6000DBBD9B /* Frameworks */,
 				69CEA13F2EAC5C6000DBBD9B /* Resources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0678E40D2048C94D5224EB8E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				69CEA1432EAC5C6000DBBD9B /* SpiceShelf */,
@@ -176,6 +229,28 @@
 			productReference = 69CEA15C2EAC5C6200DBBD9B /* SpiceShelfUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		BE28984597F5A9A90089C08D /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 83D34D3BEADB7B5067BB519E /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				0FA2D77EBEF0EAEB97653D01 /* Sources */,
+				B83FE0FD2C5956A96E8750AD /* Frameworks */,
+				50AA251E5F8BF4C382CBD59E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E0E4F7EE41D4CEAE984CC047 /* ShareExtension */,
+			);
+			name = ShareExtension;
+			packageProductDependencies = (
+			);
+			productName = ShareExtension;
+			productReference = 3598C3D8B91EF6B51C57588F /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +272,9 @@
 						CreatedOnToolsVersion = 26.0.1;
 						TestTargetID = 69CEA1402EAC5C6000DBBD9B;
 					};
+					BE28984597F5A9A90089C08D = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
 				};
 			};
 			buildConfigurationList = 69CEA13C2EAC5C6000DBBD9B /* Build configuration list for PBXProject "SpiceShelf" */;
@@ -214,6 +292,7 @@
 			projectRoot = "";
 			targets = (
 				69CEA1402EAC5C6000DBBD9B /* SpiceShelf */,
+				BE28984597F5A9A90089C08D /* ShareExtension */,
 				69CEA1512EAC5C6200DBBD9B /* SpiceShelfTests */,
 				69CEA15B2EAC5C6200DBBD9B /* SpiceShelfUITests */,
 			);
@@ -221,6 +300,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		50AA251E5F8BF4C382CBD59E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		69CEA13F2EAC5C6000DBBD9B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -245,6 +331,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0FA2D77EBEF0EAEB97653D01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		69CEA13D2EAC5C6000DBBD9B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -269,6 +362,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0678E40D2048C94D5224EB8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BE28984597F5A9A90089C08D /* ShareExtension */;
+			targetProxy = B9D44F60420D82D0C8DF827D /* PBXContainerItemProxy */;
+		};
 		69CEA1542EAC5C6200DBBD9B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 69CEA1402EAC5C6000DBBD9B /* SpiceShelf */;
@@ -282,6 +380,58 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		331BC521E8DB3757B0F2FA20 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XF6X92W4W9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = mk.lan.SpiceShelf.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		649957933EAD3204D3791455 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XF6X92W4W9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = mk.lan.SpiceShelf.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		69CEA1662EAC5C6200DBBD9B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -596,6 +746,15 @@
 			buildConfigurations = (
 				69CEA16E2EAC5C6200DBBD9B /* Debug */,
 				69CEA16F2EAC5C6200DBBD9B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		83D34D3BEADB7B5067BB519E /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				649957933EAD3204D3791455 /* Debug */,
+				331BC521E8DB3757B0F2FA20 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

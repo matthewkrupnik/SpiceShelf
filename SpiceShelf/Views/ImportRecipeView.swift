@@ -1,8 +1,16 @@
 import SwiftUI
 
 struct ImportRecipeView: View {
-    @StateObject private var viewModel = ImportRecipeViewModel()
+    @StateObject private var viewModel: ImportRecipeViewModel
     @Environment(\.dismiss) private var dismiss
+
+    init(initialURL: String? = nil) {
+        let vm = ImportRecipeViewModel()
+        if let initialURL {
+            vm.url = initialURL
+        }
+        _viewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         NavigationStack {
