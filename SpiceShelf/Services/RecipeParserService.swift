@@ -750,8 +750,18 @@ final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendabl
                 }
             }
             
-            // Check for text fraction like "1/2"
-            if workingString.hasPrefix("/") || (workingString.first?.isNumber ?? false) {
+            // Check for text fraction like "1/2" or "1 1/2"
+            if workingString.hasPrefix("/") {
+                let denomPattern = "^/\\s*(\\d+)"
+                if let regex = try? NSRegularExpression(pattern: denomPattern),
+                   let match = regex.firstMatch(in: workingString, range: NSRange(workingString.startIndex..., in: workingString)),
+                   let denRange = Range(match.range(at: 1), in: workingString),
+                   let den = Double(workingString[denRange]), den != 0 {
+                    quantity = quantity / den
+                    workingString = String(workingString[workingString.index(workingString.startIndex, offsetBy: match.range.length)...])
+                        .trimmingCharacters(in: .whitespaces)
+                }
+            } else if workingString.first?.isNumber ?? false {
                 let fractionPattern = "^(\\d+)\\s*/\\s*(\\d+)"
                 if let regex = try? NSRegularExpression(pattern: fractionPattern),
                    let match = regex.firstMatch(in: workingString, range: NSRange(workingString.startIndex..., in: workingString)),

@@ -31,7 +31,10 @@ class ImportRecipeViewModel: ObservableObject {
         state = .importing
         error = nil
 
-        guard let parseURL = URL(string: url) else {
+        guard let parseURL = URL(string: url),
+              let scheme = parseURL.scheme,
+              ["http", "https"].contains(scheme.lowercased()),
+              parseURL.host != nil else {
             error = AlertError(underlyingError: URLError(.badURL))
             state = .error
             return
