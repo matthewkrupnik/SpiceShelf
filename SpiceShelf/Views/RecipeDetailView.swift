@@ -232,6 +232,7 @@ struct RecipeDetailView: View {
                 Button("Delete", systemImage: "trash") {
                     viewModel.isShowingDeleteConfirmation = true
                 }
+                .accessibilityIdentifier("trash")
                 .glassEffect()
             }
         }

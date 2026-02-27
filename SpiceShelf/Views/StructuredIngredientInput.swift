@@ -199,6 +199,7 @@ struct IngredientAddRow: View {
                 .frame(width: 45)
                 .textFieldStyle(.roundedBorder)
                 .focused($focusedField, equals: .quantity)
+                .accessibilityIdentifier("AddIngredientQty")
             
             // Unit picker or custom text field
             if selectedUnit == .custom {
@@ -241,6 +242,7 @@ struct IngredientAddRow: View {
                 .onSubmit {
                     addIngredient()
                 }
+                .accessibilityIdentifier("SmartIngredientField")
             
             // Add button
             Button(action: addIngredient) {
@@ -248,6 +250,7 @@ struct IngredientAddRow: View {
                     .foregroundColor(canAdd ? .sageGreen : .gray)
             }
             .disabled(!canAdd)
+            .accessibilityIdentifier("AddIngredientButton")
         }
     }
     

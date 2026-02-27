@@ -17,21 +17,29 @@ class AddRecipeTests: XCTestCase {
         titleTextField.tap()
         titleTextField.typeText("Test Recipe")
 
-        // --- Ingredients ---
-        let smartField = app.textFields["SmartIngredientField"]
-        XCTAssertTrue(smartField.waitForExistence(timeout: 2), "Smart ingredient field did not appear")
-        
-        smartField.tap()
-        smartField.typeText("1 cup Ingredient 1")
-        
+        // --- Ingredients --- (scroll down so the section is rendered)
+        app.swipeUp()
+        app.swipeUp()
+        let qtyField = app.textFields["AddIngredientQty"]
+        XCTAssertTrue(qtyField.waitForExistence(timeout: 3), "Quantity field did not appear")
+        let nameField = app.textFields["SmartIngredientField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 2), "Ingredient name field did not appear")
         let addIngredientButton = app.buttons["AddIngredientButton"]
-        addIngredientButton.tap()
-        
-        smartField.tap()
-        smartField.typeText("2 tbsp Ingredient 2")
+
+        qtyField.tap()
+        qtyField.typeText("1")
+        nameField.tap()
+        nameField.typeText("Ingredient 1")
         addIngredientButton.tap()
 
-        // --- Instructions ---
+        qtyField.tap()
+        qtyField.typeText("2")
+        nameField.tap()
+        nameField.typeText("Ingredient 2")
+        addIngredientButton.tap()
+
+        // --- Instructions --- (scroll down so the section is rendered)
+        app.swipeUp()
         let instructionStep1 = app.textFields["Step 1"]
         XCTAssertTrue(instructionStep1.waitForExistence(timeout: 2), "First instruction step field did not appear")
         instructionStep1.tap()

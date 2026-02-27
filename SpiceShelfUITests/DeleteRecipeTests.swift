@@ -16,9 +16,9 @@ class DeleteRecipeTests: XCTestCase {
         XCTAssertTrue(trashButton.waitForExistence(timeout: 2), "Trash button did not appear")
         trashButton.tap()
 
-        let deleteButton = app.buttons["Delete"]
-        XCTAssertTrue(deleteButton.waitForExistence(timeout: 2), "Delete button did not appear in alert")
-        deleteButton.tap()
+        let alert = app.alerts["Delete Recipe"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 2), "Delete confirmation alert did not appear")
+        alert.buttons["Delete"].tap()
 
         XCTAssertFalse(recipeCell.waitForExistence(timeout: 5), "Recipe was not deleted.")
     }
