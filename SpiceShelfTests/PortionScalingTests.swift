@@ -6,7 +6,7 @@ class PortionScalingTests: XCTestCase {
 
     // MARK: - canScale
 
-    func testCanScaleWithValidServings() {
+    func testCanScaleWithValidServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -17,7 +17,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertTrue(vm.canScale)
     }
 
-    func testCanScaleWithNilServings() {
+    func testCanScaleWithNilServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -27,7 +27,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertFalse(vm.canScale)
     }
 
-    func testCanScaleWithZeroServings() {
+    func testCanScaleWithZeroServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -40,7 +40,7 @@ class PortionScalingTests: XCTestCase {
 
     // MARK: - scaledIngredients
 
-    func testScaleDoubleServings() {
+    func testScaleDoubleServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [
@@ -59,7 +59,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[1].quantity, 2.0, accuracy: 0.01)
     }
 
-    func testScaleHalfServings() {
+    func testScaleHalfServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [
@@ -77,7 +77,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[1].quantity, 0.25, accuracy: 0.01)
     }
 
-    func testScaleReturnOriginalWhenCurrentServingsNil() {
+    func testScaleReturnOriginalWhenCurrentServingsNil() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -91,7 +91,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[0].quantity, 2.0, accuracy: 0.01)
     }
 
-    func testScaleReturnOriginalWhenRecipeServingsNil() {
+    func testScaleReturnOriginalWhenRecipeServingsNil() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -104,7 +104,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[0].quantity, 2.0, accuracy: 0.01)
     }
 
-    func testScaleSameServingsReturnsOriginalQuantities() {
+    func testScaleSameServingsReturnsOriginalQuantities() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Flour", quantity: 2, units: "cups")],
@@ -118,7 +118,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[0].quantity, 2.0, accuracy: 0.01)
     }
 
-    func testScaleTripleServings() {
+    func testScaleTripleServings() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [Ingredient(name: "Eggs", quantity: 3, units: "")],
@@ -132,7 +132,7 @@ class PortionScalingTests: XCTestCase {
         XCTAssertEqual(scaled[0].quantity, 9.0, accuracy: 0.01)
     }
 
-    func testInitialCurrentServingsMatchesRecipe() {
+    func testInitialCurrentServingsMatchesRecipe() async {
         let recipe = Recipe(id: UUID(),
                             title: "Test",
                             ingredients: [],
