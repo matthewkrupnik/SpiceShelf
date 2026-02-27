@@ -29,6 +29,22 @@ class RecipeDataStoreTests: XCTestCase {
         XCTAssertEqual(fetched.first?.ingredients.count, 1)
     }
 
+    func testSaveAndFetchRecipeWithNotes() throws {
+        let recipe = Recipe(id: UUID(),
+                            title: "Recipe with Notes",
+                            ingredients: [],
+                            instructions: ["Step 1"],
+                            sourceURL: nil,
+                            notes: "This is a test note.")
+
+        try store.saveRecipeLocally(recipe)
+        let fetched = try store.fetchAllRecipes()
+
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.title, "Recipe with Notes")
+        XCTAssertEqual(fetched.first?.notes, "This is a test note.")
+    }
+
     func testFetchCachedRecipeById() throws {
         let id = UUID()
         let recipe = Recipe(id: id,

@@ -23,6 +23,7 @@ struct AddRecipeView: View {
     @State private var selectedDiets: Set<String> = []
     @State private var keywords: [String] = []
     @State private var recipeYield = ""
+    @State private var notes = ""
     
     @Environment(\.dismiss) private var dismiss
 
@@ -61,6 +62,11 @@ struct AddRecipeView: View {
                             servings = 4
                         }
                     }
+                }
+                
+                Section(header: Text("Notes")) {
+                    TextField("Add personal notes, tips, or variations...", text: $notes, axis: .vertical)
+                        .lineLimit(3...10)
                 }
                 
                 Section(header: Text("Category & Cuisine")) {
@@ -198,7 +204,8 @@ struct AddRecipeView: View {
                             cookTimeMinutes: cookTimeMinutes,
                             suitableForDiet: Array(selectedDiets),
                             keywords: keywords.isEmpty ? nil : keywords,
-                            recipeYield: recipeYield.isEmpty ? nil : recipeYield
+                            recipeYield: recipeYield.isEmpty ? nil : recipeYield,
+                            notes: notes.isEmpty ? nil : notes
                         )
                     }
                     .fontWeight(.semibold)

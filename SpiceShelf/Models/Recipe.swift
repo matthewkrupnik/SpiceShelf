@@ -346,6 +346,9 @@ struct Recipe: Identifiable, Hashable, Codable {
     
     // MARK: - App-Specific (not in Schema.org)
     
+    /// Personal notes about the recipe
+    var notes: String?
+    
     /// CloudKit image asset (not codable, handled separately)
     var imageAsset: CKAsset? = nil
     
@@ -354,7 +357,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         case recipeIngredient, instructionSteps, instructionSections, recipeYield, servings
         case recipeCategory, recipeCuisine, cookingMethod, suitableForDiet
         case prepTime, cookTime, totalTime
-        case nutrition, aggregateRating, video, sourceURL
+        case nutrition, aggregateRating, video, sourceURL, notes
     }
     
     init(from decoder: Decoder) throws {
@@ -382,6 +385,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         aggregateRating = try container.decodeIfPresent(AggregateRating.self, forKey: .aggregateRating)
         video = try container.decodeIfPresent(RecipeVideo.self, forKey: .video)
         sourceURL = try container.decodeIfPresent(String.self, forKey: .sourceURL)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes)
         imageAsset = nil
     }
     
@@ -410,6 +414,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         try container.encodeIfPresent(aggregateRating, forKey: .aggregateRating)
         try container.encodeIfPresent(video, forKey: .video)
         try container.encodeIfPresent(sourceURL, forKey: .sourceURL)
+        try container.encodeIfPresent(notes, forKey: .notes)
     }
     
     // MARK: - Backward Compatibility
@@ -470,6 +475,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         aggregateRating: AggregateRating? = nil,
         video: RecipeVideo? = nil,
         sourceURL: String? = nil,
+        notes: String? = nil,
         imageAsset: CKAsset? = nil
     ) {
         self.id = id
@@ -495,6 +501,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.aggregateRating = aggregateRating
         self.video = video
         self.sourceURL = sourceURL
+        self.notes = notes
         self.imageAsset = imageAsset
     }
     
@@ -506,6 +513,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         instructions: [String],
         sourceURL: String? = nil,
         servings: Int? = nil,
+        notes: String? = nil,
         imageAsset: CKAsset? = nil
     ) {
         self.id = id
@@ -514,6 +522,7 @@ struct Recipe: Identifiable, Hashable, Codable {
         self.instructionSteps = instructions.map { HowToStep($0) }
         self.sourceURL = sourceURL
         self.servings = servings
+        self.notes = notes
         self.imageAsset = imageAsset
         
         // Initialize other properties to nil

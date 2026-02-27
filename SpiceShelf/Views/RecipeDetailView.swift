@@ -60,6 +60,27 @@ struct RecipeDetailView: View {
                             .padding(.bottom, 8)
                     }
                     
+                    // Notes
+                    if let notes = viewModel.recipe.notes, !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Notes")
+                                .font(.serifHeading())
+                                .foregroundColor(.sageGreen)
+                            
+                            Text(notes)
+                                .font(.sansBody())
+                                .foregroundColor(.charcoal)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.sageGreen.opacity(0.05))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.sageGreen.opacity(0.2), lineWidth: 1)
+                                )
+                        }
+                    }
+                    
                     // Author & Source
                     if viewModel.recipe.author?.name != nil || viewModel.recipe.sourceURL != nil {
                         RecipeSourceView(recipe: viewModel.recipe)

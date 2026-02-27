@@ -148,6 +148,7 @@ final class CachedRecipe {
     var sourceURL: String?
     
     // App-specific
+    var notes: String?
     var imageData: Data?
     
     // Sync tracking
@@ -187,6 +188,7 @@ final class CachedRecipe {
         ratingCount: Int? = nil,
         videoJSON: String? = nil,
         sourceURL: String? = nil,
+        notes: String? = nil,
         imageData: Data? = nil,
         lastModified: Date = Date(),
         needsSync: Bool = false,
@@ -217,6 +219,7 @@ final class CachedRecipe {
         self.ratingCount = ratingCount
         self.videoJSON = videoJSON
         self.sourceURL = sourceURL
+        self.notes = notes
         self.imageData = imageData
         self.lastModified = lastModified
         self.needsSync = needsSync
@@ -269,6 +272,7 @@ final class CachedRecipe {
             ratingCount: recipe.aggregateRating?.ratingCount,
             videoJSON: videoJSON,
             sourceURL: recipe.sourceURL,
+            notes: recipe.notes,
             imageData: imageData,
             lastModified: Date(),
             needsSync: false,
@@ -327,6 +331,7 @@ final class CachedRecipe {
             aggregateRating: aggregateRating,
             video: video,
             sourceURL: sourceURL,
+            notes: notes,
             imageAsset: Self.assetFromData(imageData, id: id)
         )
     }
@@ -351,6 +356,7 @@ final class CachedRecipe {
         self.ratingValue = recipe.aggregateRating?.ratingValue
         self.ratingCount = recipe.aggregateRating?.ratingCount
         self.sourceURL = recipe.sourceURL
+        self.notes = recipe.notes
         self.lastModified = Date()
         
         // Update nutrition JSON

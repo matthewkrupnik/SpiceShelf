@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import CloudKit
+import Combine
 
 enum ValidationError: Error, LocalizedError {
     case emptyTitle
@@ -12,9 +13,6 @@ enum ValidationError: Error, LocalizedError {
         }
     }
 }
-
-
-import Combine
 
 @MainActor
 class AddRecipeViewModel: ObservableObject {
@@ -42,7 +40,8 @@ class AddRecipeViewModel: ObservableObject {
         cookTimeMinutes: Int? = nil,
         suitableForDiet: [String]? = nil,
         keywords: [String]? = nil,
-        recipeYield: String? = nil
+        recipeYield: String? = nil,
+        notes: String? = nil
     ) {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             self.error = AlertError(underlyingError: ValidationError.emptyTitle)
@@ -102,6 +101,7 @@ class AddRecipeViewModel: ObservableObject {
             prepTime: prepTimeMinutes.map { RecipeDuration(minutes: $0) },
             cookTime: cookTimeMinutes.map { RecipeDuration(minutes: $0) },
             totalTime: totalTime,
+            notes: notes?.isEmpty == true ? nil : notes,
             imageAsset: imageAsset
         )
 

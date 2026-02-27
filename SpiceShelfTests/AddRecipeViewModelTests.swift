@@ -31,9 +31,27 @@ class AddRecipeViewModelTests: XCTestCase {
         XCTAssertEqual(mockCloudKitService.recipeSaved?.instructions.count, 2)
     }
 
+    func testSaveRecipeWithNotes() async {
+        // Given
+        let mockCloudKitService = MockCloudKitService()
+        let viewModel = AddRecipeViewModel(cloudKitService: mockCloudKitService)
+        let expectation = self.expectation(description: "Save recipe with notes")
+        mockCloudKitService.expectation = expectation
+
+        // When
+        viewModel.saveRecipe(title: "Recipe With Notes",
+                             ingredients: [],
+                             instructionSteps: [HowToStep("Step")],
+                             notes: "Test note")
+
+        // Then
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(mockCloudKitService.recipeSaved?.notes, "Test note")
+    }
+
     // MARK: - Failure Path Tests
 
-    func testSaveRecipeEmptyTitleSetsValidationError() {
+    func testSaveRecipeEmptyTitleSetsValidationError() async {
         let mockCloudKitService = MockCloudKitService()
         let viewModel = AddRecipeViewModel(cloudKitService: mockCloudKitService)
 

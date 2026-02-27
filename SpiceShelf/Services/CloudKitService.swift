@@ -20,6 +20,7 @@ final class CloudKitService: CloudKitServiceProtocol, @unchecked Sendable {
         }
         record["instructions"] = recipe.instructions
         record["sourceURL"] = recipe.sourceURL
+        record["notes"] = recipe.notes
         record["servings"] = recipe.servings
         if let imageAsset = recipe.imageAsset {
             record["imageAsset"] = imageAsset
@@ -78,6 +79,7 @@ final class CloudKitService: CloudKitServiceProtocol, @unchecked Sendable {
                         }
 
                         let sourceURL = record["sourceURL"] as? String
+                        let notes = record["notes"] as? String
                         let servings = record["servings"] as? Int ?? 4
                         let imageAsset = record["imageAsset"] as? CKAsset
 
@@ -87,6 +89,7 @@ final class CloudKitService: CloudKitServiceProtocol, @unchecked Sendable {
                                       instructions: instructions,
                                       sourceURL: sourceURL,
                                       servings: servings,
+                                      notes: notes,
                                       imageAsset: imageAsset)
                     }
                     continuation.resume(returning: recipes)
@@ -126,6 +129,7 @@ final class CloudKitService: CloudKitServiceProtocol, @unchecked Sendable {
                 }
                 record["instructions"] = recipe.instructions
                 record["sourceURL"] = recipe.sourceURL
+                record["notes"] = recipe.notes
                 record["servings"] = recipe.servings
                 if let imageAsset = recipe.imageAsset {
                     record["imageAsset"] = imageAsset

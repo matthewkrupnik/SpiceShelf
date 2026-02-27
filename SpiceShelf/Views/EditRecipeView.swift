@@ -44,6 +44,14 @@ struct EditRecipeView: View {
                     }
                 }
                 
+                Section(header: Text("Notes")) {
+                    TextField("Personal notes, tips, or variations...", text: Binding(
+                        get: { viewModel.recipe.notes ?? "" },
+                        set: { viewModel.recipe.notes = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(3...10)
+                }
+                
                 Section(header: Text("Category & Cuisine")) {
                     TextField("Cuisine (e.g., Italian, Mexican)", text: Binding(
                         get: { viewModel.recipe.recipeCuisine ?? "" },
