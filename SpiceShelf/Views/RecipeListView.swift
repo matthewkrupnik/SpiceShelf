@@ -25,9 +25,7 @@ struct RecipeListView: View {
                     if viewModel.filteredRecipes.isEmpty && !viewModel.searchText.isEmpty {
                         ContentUnavailableView.search(text: viewModel.searchText)
                     } else if viewModel.recipes.isEmpty {
-                        EmptyStateView {
-                            isShowingAddRecipeView = true
-                        }
+                        EmptyStateView()
                     } else {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 16) {
@@ -84,21 +82,32 @@ struct RecipeListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 12) {
-                        Button("Import Recipe", systemImage: "square.and.arrow.down") {
-                            isShowingImportRecipeView = true
-                        }
-                        .glassEffect()
-                        Button("Settings", systemImage: "gearshape") {
-                            isShowingSettingsView = true
-                        }
-                        .glassEffect()
+                    Button("Settings", systemImage: "gearshape") {
+                        isShowingSettingsView = true
                     }
+                    .glassEffect()
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add Recipe", systemImage: "plus") {
-                        isShowingAddRecipeView = true
+                    Menu {
+                        Button {
+                            isShowingImportRecipeView = true
+                        } label: {
+                            Label("Import from Website", systemImage: "globe")
+                        }
+                        Button {
+                            isShowingAddRecipeView = true
+                        } label: {
+                            Label("Enter Manually", systemImage: "square.and.pencil")
+                        }
+                        Button {
+                        } label: {
+                            Label("AI from Image", systemImage: "camera")
+                        }
+                        .disabled(true)
+                    } label: {
+                        Label("Add Recipe", systemImage: "plus")
                     }
+                    .menuStyle(.button)
                     .glassEffect()
                 }
             }
@@ -141,8 +150,6 @@ struct RecipeListView: View {
 }
 
 struct EmptyStateView: View {
-    var action: () -> Void
-    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "basket")
@@ -155,16 +162,6 @@ struct EmptyStateView: View {
             Text("Start by adding your favorite recipes.")
                 .font(.sansBody())
                 .foregroundColor(.gray)
-            Button(action: action) {
-                Text("Add First Recipe")
-                    .font(.headline)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.sageGreen)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
-            .padding(.horizontal, 40)
         }
     }
 }
