@@ -35,7 +35,11 @@ final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendabl
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            throw RecipeParsingError.invalidData
+        }
         
         guard let htmlString = String(data: data, encoding: .utf8) else {
             throw RecipeParsingError.invalidData
@@ -59,7 +63,7 @@ final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendabl
     // MARK: - JSON-LD Parsing
     
     func extractJSONLDRecipe(from html: String, url: URL) -> Recipe? {
-        let pattern = "<script type=\"application/ld\\+json\"[^>]*>(.*?)</script>"
+        let pattern = "<script\\b[^>]*?\\btype=[\"']application/ld\\+json[\"'][^>]*>(.*?)</script>"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else { return nil }
 
         let range = NSRange(html.startIndex..<html.endIndex, in: html)
@@ -104,29 +108,20 @@ final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendabl
             if let recipe = parseJSONDict(dict, url: url) {
                 return recipe
             }
-            // Check @graph array
-            if let graph = dict["@graph"] as? [[String: Any]] {
-                for item in graph {
-                    if let recipe = parseJSONDict(item, url: url) {
-                        return recipe
-                    }
-                }
-            }
-        }
-        
-        // Array of dictionaries
-        if let array = json as? [[String: Any]] {
-            for dict in array {
-                if let recipe = parseJSONDict(dict, url: url) {
+            
+            // Recursively search all keys for Recipe type
+            // This handles @graph, mainEntity, and any other nesting
+            for value in dict.values {
+                if let recipe = findRecipeInJSON(value, url: url) {
                     return recipe
                 }
             }
         }
         
-        // Array containing mixed types
+        // Array of items
         if let array = json as? [Any] {
             for item in array {
-                if let dict = item as? [String: Any], let recipe = parseJSONDict(dict, url: url) {
+                if let recipe = findRecipeInJSON(item, url: url) {
                     return recipe
                 }
             }
@@ -453,59 +448,76 @@ final class RecipeParserService: RecipeParserServiceProtocol, @unchecked Sendabl
         var steps: [HowToStep] = []
         var sections: [HowToSection] = []
         
-        // Handle HowToStep objects
-        if let list = dict["recipeInstructions"] as? [[String: Any]] {
-            for item in list {
-                let itemType = item["@type"] as? String
-                
-                // HowToSection with itemListElement
-                if itemType == "HowToSection" {
-                    let sectionName = item["name"] as? String ?? "Section"
-                    var sectionSteps: [HowToStep] = []
-                    
-                    if let items = item["itemListElement"] as? [[String: Any]] {
-                        for stepItem in items {
-                            if let text = stepItem["text"] as? String {
-                                let step = HowToStep(
-                                    name: stepItem["name"] as? String,
-                                    text: decodeHTMLEntities(stripHTML(text)),
-                                    url: stepItem["url"] as? String,
-                                    image: extractStepImage(from: stepItem)
-                                )
-                                sectionSteps.append(step)
-                            }
-                        }
-                    }
-                    
-                    if !sectionSteps.isEmpty {
-                        sections.append(HowToSection(name: sectionName, steps: sectionSteps))
+        let instructions = dict["recipeInstructions"]
+        
+        // Helper to extract step from a dict
+        func extractStep(from item: [String: Any]) -> HowToStep? {
+            if let text = item["text"] as? String, !text.isEmpty {
+                return HowToStep(
+                    name: item["name"] as? String,
+                    text: decodeHTMLEntities(stripHTML(text)),
+                    url: item["url"] as? String,
+                    image: extractStepImage(from: item)
+                )
+            }
+            return nil
+        }
+
+        // Handle case where instructions is a single object (ItemList or similar)
+        if let instrDict = instructions as? [String: Any] {
+            if let itemList = instrDict["itemListElement"] as? [[String: Any]] {
+                for item in itemList {
+                    if let step = extractStep(from: item) {
+                        steps.append(step)
                     }
                 }
-                // HowToStep
-                else if let text = item["text"] as? String, !text.isEmpty {
-                    let step = HowToStep(
-                        name: item["name"] as? String,
-                        text: decodeHTMLEntities(stripHTML(text)),
-                        url: item["url"] as? String,
-                        image: extractStepImage(from: item)
-                    )
-                    steps.append(step)
+            } else if let step = extractStep(from: instrDict) {
+                steps.append(step)
+            }
+        }
+        
+        // Handle array of objects or strings
+        else if let list = instructions as? [Any] {
+            for item in list {
+                // Dictionary item (HowToStep or HowToSection)
+                if let itemDict = item as? [String: Any] {
+                    let itemType = itemDict["@type"] as? String
+                    
+                    // HowToSection
+                    if itemType == "HowToSection" {
+                        let sectionName = itemDict["name"] as? String ?? "Section"
+                        var sectionSteps: [HowToStep] = []
+                        
+                        if let items = itemDict["itemListElement"] as? [[String: Any]] {
+                            for stepItem in items {
+                                if let step = extractStep(from: stepItem) {
+                                    sectionSteps.append(step)
+                                }
+                            }
+                        }
+                        
+                        if !sectionSteps.isEmpty {
+                            sections.append(HowToSection(name: sectionName, steps: sectionSteps))
+                        }
+                    }
+                    // HowToStep (or any dict with "text")
+                    else if let step = extractStep(from: itemDict) {
+                        steps.append(step)
+                    }
+                }
+                // Plain string item
+                else if let str = item as? String {
+                    let cleaned = decodeHTMLEntities(stripHTML(str))
+                    if !cleaned.isEmpty {
+                        steps.append(HowToStep(cleaned))
+                    }
                 }
             }
         }
         
-        // Handle simple string array
-        else if let list = dict["recipeInstructions"] as? [String] {
-            steps = list
-                .map { decodeHTMLEntities(stripHTML($0)) }
-                .filter { !$0.isEmpty }
-                .map { HowToStep($0) }
-        }
-        
         // Handle single string (sometimes with line breaks)
-        else if let str = dict["recipeInstructions"] as? String {
+        else if let str = instructions as? String {
             let cleaned = decodeHTMLEntities(stripHTML(str))
-            // Split by common delimiters
             steps = cleaned.components(separatedBy: CharacterSet.newlines)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
